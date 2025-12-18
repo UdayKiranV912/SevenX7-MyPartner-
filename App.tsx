@@ -5,6 +5,7 @@ import { Auth } from './components/OTPVerification';
 import { StoreApp } from './components/store/StoreApp';
 import { CustomerApp } from './components/customer/CustomerApp';
 import { DeliveryApp } from './components/delivery/DeliveryApp';
+import { AdminApp } from './components/admin/AdminApp';
 
 const App: React.FC = () => {
   // Authentication State
@@ -57,6 +58,18 @@ const App: React.FC = () => {
     });
   };
 
+  const handleAdminDemoLogin = () => {
+    setUser({
+      isAuthenticated: true,
+      id: 'demo-admin',
+      name: 'Headquarters Admin',
+      phone: '100',
+      role: 'admin',
+      location: null,
+      address: 'Bengaluru Command Center'
+    });
+  };
+
   const handleLogout = () => {
     setUser({ isAuthenticated: false, phone: '', location: null });
   };
@@ -68,11 +81,16 @@ const App: React.FC = () => {
             onDemoLogin={handleStoreDemoLogin} 
             onCustomerDemoLogin={handleCustomerDemoLogin}
             onPartnerDemoLogin={handlePartnerDemoLogin}
+            onAdminDemoLogin={handleAdminDemoLogin}
         />
     );
   }
 
   // Routing based on Role
+  if (user.role === 'admin') {
+      return <AdminApp user={user} onLogout={handleLogout} />;
+  }
+
   if (user.role === 'store_owner') {
       return <StoreApp user={user} onLogout={handleLogout} />;
   }

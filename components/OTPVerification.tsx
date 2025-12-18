@@ -9,9 +9,16 @@ interface AuthProps {
   onDemoLogin: () => void;
   onCustomerDemoLogin: () => void;
   onPartnerDemoLogin: () => void;
+  onAdminDemoLogin?: () => void;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onDemoLogin, onCustomerDemoLogin, onPartnerDemoLogin }) => {
+export const Auth: React.FC<AuthProps> = ({ 
+  onLoginSuccess, 
+  onDemoLogin, 
+  onCustomerDemoLogin, 
+  onPartnerDemoLogin,
+  onAdminDemoLogin 
+}) => {
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'VERIFY'>('LOGIN');
   
   const [formData, setFormData] = useState({
@@ -33,8 +40,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onDemoLogin, onCusto
       setStatusMsg('Joining the fleet...');
 
       try {
-          // Defaulting registration to delivery_partner role for this context if needed
-          // Realistically, the backend handles role assignment or user chooses
           await registerUser(formData.email, formData.password, formData.fullName, formData.phone);
           setLoading(false);
           setAuthMode('VERIFY'); 
@@ -217,16 +222,16 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onDemoLogin, onCusto
         
         {/* Simplified Demo Footer */}
         {authMode !== 'VERIFY' && (
-            <div className="bg-slate-50 p-6 text-center border-t border-slate-100 w-full">
+            <div className="bg-slate-50 p-6 text-center border-t border-slate-100 w-full flex flex-col gap-2">
                 <button 
                     type="button" 
                     onClick={onPartnerDemoLogin}
                     className="flex items-center justify-center gap-3 bg-white px-6 py-3 rounded-2xl border border-slate-200 text-xs font-black text-slate-600 shadow-sm hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-95 group w-full"
                 >
                     <span className="text-xl group-hover:scale-110 transition-transform">🛵</span>
-                    <span>TRY PARTNER DEMO MODE</span>
+                    <span>TRY PARTNER DEMO</span>
                 </button>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-4">Safe & Secure Logistics</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Safe & Secure Logistics</p>
             </div>
         )}
       </div>
