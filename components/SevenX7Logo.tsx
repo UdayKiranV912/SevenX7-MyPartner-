@@ -11,52 +11,71 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
   
   const getTextSize = () => {
       switch(size) {
-          case 'xs': return 'text-[8px]';
-          case 'small': return 'text-[10px]';
-          case 'medium': return 'text-base';
-          case 'large': return 'text-3xl';
-          default: return 'text-[10px]';
+          case 'xs': return 'text-[10px]';
+          case 'small': return 'text-xs';
+          case 'medium': return 'text-xl';
+          case 'large': return 'text-4xl';
+          default: return 'text-xs';
       }
   };
 
-  const isLarge = size === 'large';
   const textSizeClass = getTextSize();
   
-  // Minimal gaps to make it look like one word
-  const gapClass = 'gap-0';
-  
-  const xSize = isLarge ? 'text-5xl' : size === 'medium' ? 'text-2xl' : size === 'xs' ? 'text-[10px]' : 'text-lg';
-  // Tight tracking for "one word" feel
+  // 'X' sizing logic - always slightly larger than base text
+  const getXSize = () => {
+      switch(size) {
+          case 'xs': return 'text-[12px]';
+          case 'small': return 'text-sm';
+          case 'medium': return 'text-2xl';
+          case 'large': return 'text-5xl';
+          default: return 'text-sm';
+      }
+  };
+
+  const xSizeClass = getXSize();
   const trackingClass = 'tracking-tighter';
 
   return (
-    <div className={`group flex items-center font-display ${gapClass} select-none`}>
-      
-      {/* SEVEN - Black, standard bold */}
+    <div 
+      className="inline-flex items-center gap-0 select-none cursor-pointer group" 
+      onClick={onNewsClick}
+    >
+      {/* SEVEN - Black, Ultra Bold */}
       <span 
-        className={`${textSizeClass} text-black font-black uppercase ${trackingClass} leading-none`}
+        className={`${textSizeClass} text-black font-black uppercase ${trackingClass} leading-none flex-shrink-0`}
+        style={{ fontWeight: 900 }}
       >
         Seven
       </span>
 
-      {/* X - Black, extra bold - Centered vertically with text */}
-      <div 
-        className={`relative flex items-center justify-center ${xSize} leading-none px-[0.05em]`} 
-        onClick={onNewsClick}
-      >
+      {/* X - Bolder, Larger, No Overlap */}
+      <div className="flex items-center justify-center px-[2px] leading-none flex-shrink-0">
          <span 
-            className="relative z-10 text-black font-black inline-block origin-center" 
-            style={{ fontFamily: 'sans-serif', fontWeight: 950 }}
+            className={`${xSizeClassClass()} text-black font-black inline-block transform scale-110`} 
+            style={{ 
+              fontFamily: 'system-ui, sans-serif', 
+              fontWeight: 1000, // Extra bold
+              lineHeight: 1
+            }}
          >
             X
          </span>
       </div>
 
-      {/* 7 - Reverting back from 'Store' as requested */}
-      <span className={`${textSizeClass} text-black font-black uppercase ${trackingClass} leading-none`}>7</span>
-
+      {/* 7 - Black, Ultra Bold */}
+      <span 
+        className={`${textSizeClass} text-black font-black ${trackingClass} leading-none flex-shrink-0`}
+        style={{ fontWeight: 900 }}
+      >
+        7
+      </span>
     </div>
   );
+
+  // Helper for X font class to avoid duplicate logic
+  function xSizeClassClass() {
+      return xSizeClass;
+  }
 };
 
 export default SevenX7Logo;
