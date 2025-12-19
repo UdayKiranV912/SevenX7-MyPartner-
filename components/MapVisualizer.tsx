@@ -20,7 +20,6 @@ interface MapVisualizerProps {
   enableLiveTracking?: boolean;
   driverLocation?: { lat: number; lng: number };
   forcedCenter?: { lat: number; lng: number } | null;
-  // NEW: Flexible routing overrides
   routeSource?: { lat: number; lng: number };
   routeTarget?: { lat: number; lng: number };
 }
@@ -106,8 +105,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       scrollWheelZoom: 'center' 
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 20
     }).addTo(map);
@@ -150,7 +149,11 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     const watchId = watchLocation((loc) => {
         setInternalUserLoc({ lat: loc.lat, lng: loc.lng, acc: loc.accuracy });
         setGpsError(null);
-    }, () => setGpsError("Weak Signal"));
+    }, (err: any) => {
+        // Stringify the error message or use a friendly fallback
+        const message = err?.message || (typeof err === 'string' ? err : "GPS Signal Lost");
+        setGpsError(message);
+    });
     return () => clearWatch(watchId);
   }, [enableLiveTracking, isSelectionMode]);
 
@@ -233,7 +236,6 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     }
   }, [driverLocation, isMapReady]);
 
-  // Enhanced Route Line logic
   useEffect(() => {
     const L = (window as any).L;
     if (!isMapReady || !L) return;
@@ -256,7 +258,6 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                 
                 if (isFollowingUser) {
                    const bounds = L.latLngBounds(route.coordinates);
-                   // Include start and end points explicitly to ensure they fit
                    bounds.extend([startLat, startLng]);
                    bounds.extend([endLat, endLng]);
                    mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
@@ -299,7 +300,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       {selectedStore && !isSelectionMode && (
          <div onClick={() => { setIsFollowingUser(false); mapInstanceRef.current?.flyTo([selectedStore.lat, selectedStore.lng], 17); }} className="absolute bottom-6 left-4 right-16 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-float flex items-center justify-between border border-white z-[400] animate-slide-up cursor-pointer ring-1 ring-slate-100">
              <div className="flex items-center gap-3 overflow-hidden flex-1">
-                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm text-white flex-shrink-0 ${selectedStore.type === 'produce' ? 'bg-emerald-500' : selectedStore.type === 'dairy' ? 'bg-blue-500' : (selectedStore as any).type === 'customer' ? 'bg-blue-600' : 'bg-orange-500'}`}>{selectedStore.type === 'produce' ? '🥦' : selectedStore.type === 'dairy' ? '🥛' : (selectedStore as any).type === 'customer' ? '🏠' : '🏪'}</div>
+                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm text-white flex-shrink-0 ${selectedStore.type === 'produce' ? 'bg-emerald-50' : selectedStore.type === 'dairy' ? 'bg-blue-50' : (selectedStore as any).type === 'customer' ? 'bg-blue-600' : 'bg-orange-500'}`}>{selectedStore.type === 'produce' ? '🥦' : selectedStore.type === 'dairy' ? '🥛' : (selectedStore as any).type === 'customer' ? '🏠' : '🏪'}</div>
                  <div className="min-w-0">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">{mode === 'DELIVERY' ? 'Deliver From' : 'Visit'}</div>
                     <div className="flex items-center gap-2"><div className="text-sm font-black text-slate-800 truncate">{selectedStore.name}</div></div>

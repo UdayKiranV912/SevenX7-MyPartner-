@@ -3,6 +3,24 @@ import { supabase } from './supabaseClient';
 import { Order } from '../types';
 
 /**
+ * Maps DB status to UI PascalCase status
+ */
+const mapDbToUIStatus = (status: string): Order['status'] => {
+    switch (status) {
+        case 'placed': return 'Placed';
+        case 'accepted': return 'Accepted';
+        case 'packing': return 'Preparing';
+        case 'ready': return 'Ready';
+        case 'on_way': return 'On the way';
+        case 'delivered': return 'Delivered';
+        case 'picked_up': return 'Picked Up';
+        case 'cancelled': return 'Cancelled';
+        case 'rejected': return 'Rejected';
+        default: return 'Pending';
+    }
+};
+
+/**
  * Fetch orders that are 'ready' or 'packing' but don't have a delivery partner assigned yet.
  */
 export const getAvailableOrders = async (): Promise<Order[]> => {
@@ -21,8 +39,8 @@ export const getAvailableOrders = async (): Promise<Order[]> => {
         date: row.created_at,
         items: row.items,
         total: row.total_amount,
-        status: row.status,
-        mode: row.type || 'DELIVERY',
+        status: mapDbToUIStatus(row.status),
+        mode: 'DELIVERY',
         deliveryType: 'INSTANT',
         storeName: row.stores?.name || 'Local Mart',
         storeLocation: { lat: row.stores?.lat, lng: row.stores?.lng },
@@ -38,6 +56,36 @@ export const getAvailableOrders = async (): Promise<Order[]> => {
     console.error("getAvailableOrders error", e);
     return [];
   }
+};
+
+/**
+ * Fetch completed order history for a partner.
+ */
+export const getPartnerOrderHistory = async (partnerId: string): Promise<Order[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*, stores(name)')
+            .eq('delivery_partner_id', partnerId)
+            .eq('status', 'delivered')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return (data || []).map((row: any) => ({
+            id: row.id,
+            date: row.created_at,
+            items: row.items,
+            total: row.total_amount,
+            status: 'Delivered',
+            storeName: row.stores?.name || 'Local Mart',
+            deliveryAddress: row.delivery_address,
+            splits: { deliveryFee: 30 }
+        })) as any;
+    } catch (e) {
+        console.error("getPartnerOrderHistory error", e);
+        return [];
+    }
 };
 
 /**
@@ -75,7 +123,9 @@ export const broadcastLocation = async (partnerId: string, lat: number, lng: num
         .from('profiles')
         .update({ 
             current_lat: lat, 
-            current_lng: lng
+            current_lng: lng,
+            last_lat: lat, // Legacy support
+            last_lng: lng  // Legacy support
         })
         .eq('id', partnerId);
 };

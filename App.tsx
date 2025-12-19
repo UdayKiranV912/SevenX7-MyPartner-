@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserState } from './types';
 import { Auth } from './components/OTPVerification';
 import { StoreApp } from './components/store/StoreApp';
@@ -15,11 +15,17 @@ const App: React.FC = () => {
       phone: '',
       location: null, 
       address: '',    
-      role: 'customer'
+      role: 'delivery_partner' 
   });
 
   const handleLoginSuccess = (userData: UserState) => {
-    setUser(userData);
+    // FORCE all real users into the delivery_partner role as requested
+    const userWithRole: UserState = {
+        ...userData,
+        role: 'delivery_partner',
+        isAuthenticated: true
+    };
+    setUser(userWithRole);
   };
 
   const handleStoreDemoLogin = () => {
@@ -71,7 +77,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    setUser({ isAuthenticated: false, phone: '', location: null });
+    setUser({ isAuthenticated: false, phone: '', location: null, role: 'delivery_partner', id: '' });
   };
 
   if (!user.isAuthenticated) {
@@ -86,7 +92,17 @@ const App: React.FC = () => {
     );
   }
 
-  // Routing based on Role
+  /**
+   * ROUTING LOGIC
+   * Priority: Real users (UUID from Supabase, non-demo ID) ALWAYS go to DeliveryApp.
+   */
+  const isRealUser = user.id && !user.id.startsWith('demo-') && user.id.length > 10;
+  
+  if (isRealUser) {
+      return <DeliveryApp user={user} onLogout={handleLogout} />;
+  }
+
+  // Demo Role Routing
   if (user.role === 'admin') {
       return <AdminApp user={user} onLogout={handleLogout} />;
   }
@@ -99,7 +115,7 @@ const App: React.FC = () => {
       return <DeliveryApp user={user} onLogout={handleLogout} />;
   }
 
-  // Default to Customer App
+  // Fallback for demo-customer
   return <CustomerApp user={user} onLogout={handleLogout} />;
 };
 

@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { UserState, SavedCard } from '../types';
 
@@ -33,12 +34,6 @@ export const syncUserWithSupabase = async (
       .eq(column, identifier)
       .single();
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      if (fetchError.code === '42P01') {
-          console.error("CRITICAL: Table 'profiles' missing. Please run the provided SQL script in Supabase.");
-      }
-    }
-
     if (existingUser) {
         return {
             isAuthenticated: true,
@@ -47,6 +42,7 @@ export const syncUserWithSupabase = async (
             email: existingUser.email || '',
             name: existingUser.full_name || '',
             address: existingUser.address || '',
+            role: existingUser.role || 'delivery_partner',
             savedCards: MOCK_CARDS,
             location: null
         };
@@ -60,6 +56,7 @@ export const syncUserWithSupabase = async (
       email: type === 'EMAIL' ? identifier : '',
       name: '',
       address: '',
+      role: 'delivery_partner',
       savedCards: [],
       location: null
     };
@@ -73,6 +70,7 @@ export const syncUserWithSupabase = async (
       email: type === 'EMAIL' ? identifier : '',
       name: '',
       address: '',
+      role: 'delivery_partner',
       savedCards: [],
       location: null
     };
@@ -88,7 +86,8 @@ export const registerUser = async (email: string, password: string, fullName: st
         options: {
             data: {
                 full_name: fullName,
-                phone: phone
+                phone: phone,
+                role: 'delivery_partner' 
             }
         }
     });
@@ -104,7 +103,8 @@ export const registerUser = async (email: string, password: string, fullName: st
             email: email,
             full_name: fullName,
             phone_number: phone,
-            address: '' 
+            address: '',
+            role: 'delivery_partner' 
         });
 
     if (profileError) {
@@ -118,6 +118,7 @@ export const registerUser = async (email: string, password: string, fullName: st
         email: email,
         name: fullName,
         address: '',
+        role: 'delivery_partner',
         savedCards: [],
         location: null
     };
@@ -136,10 +137,10 @@ export const loginUser = async (email: string, password: string): Promise<UserSt
 
     // 2. Fetch Profile from 'profiles'
     const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
 
     // 3. Self-Healing: If profile is missing
     if (!profileData || profileError) {
@@ -151,7 +152,8 @@ export const loginUser = async (email: string, password: string): Promise<UserSt
             email: authData.user.email,
             full_name: metadata?.full_name || 'User',
             phone_number: metadata?.phone || '',
-            address: ''
+            address: '',
+            role: 'delivery_partner'
         };
 
         const { data: healedProfile } = await supabase
@@ -168,6 +170,7 @@ export const loginUser = async (email: string, password: string): Promise<UserSt
                 email: healedProfile.email || '',
                 name: healedProfile.full_name || '',
                 address: healedProfile.address || '',
+                role: healedProfile.role || 'delivery_partner',
                 savedCards: MOCK_CARDS,
                 location: null
             };
@@ -181,12 +184,13 @@ export const loginUser = async (email: string, password: string): Promise<UserSt
         email: profileData?.email || authData.user.email || '',
         name: profileData?.full_name || authData.user.user_metadata?.full_name || '',
         address: profileData?.address || '',
+        role: profileData?.role || 'delivery_partner',
         savedCards: MOCK_CARDS,
         location: null
     };
 };
 
-export const updateUserProfile = async (id: string, updates: { full_name?: string; address?: string; email?: string; phone_number?: string }) => {
+export const updateUserProfile = async (id: string, updates: { full_name?: string; address?: string; email?: string; phone_number?: string; role?: string }) => {
   const { data, error } = await supabase
     .from('profiles')
     .update(updates)

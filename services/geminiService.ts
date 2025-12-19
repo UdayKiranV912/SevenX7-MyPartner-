@@ -6,11 +6,8 @@ import { MOCK_STORES } from "../constants";
 // CONFIGURATION: Set this if you deploy the Cloudflare Worker
 const CLOUDFLARE_WORKER_URL = ''; // e.g., 'https://your-worker.your-name.workers.dev'
 
-// Safety check for API key
-const apiKey = process.env.API_KEY || '';
-
-// Initialize SDK only if key is present and we aren't forcing proxy
-const ai = (apiKey && !CLOUDFLARE_WORKER_URL) ? new GoogleGenAI({ apiKey }) : null;
+// Initialize SDK according to guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 // Helper to assign inventory based on type
 const assignInventory = (type: Store['type']): string[] => {
@@ -202,28 +199,28 @@ export const generateProductDetails = async (productName: string): Promise<Parti
     }
 
     // B. USE SDK (DIRECT) - Fallback
-    if (ai) {
-        const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+    // Always use ai.models.generateContent with model name and prompt
+    const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
         contents: `Generate a short appetizing description (max 20 words), a simple list of ingredients (if applicable for a raw item just say 'Fresh ${productName}'), and basic nutritional info (e.g. '120 kcal, 5g Protein') for the grocery item: '${productName}'.`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                description: { type: Type.STRING },
-                ingredients: { type: Type.STRING },
-                nutrition: { type: Type.STRING },
-            },
-            required: ["description", "ingredients", "nutrition"]
+                type: Type.OBJECT,
+                properties: {
+                    description: { type: Type.STRING },
+                    ingredients: { type: Type.STRING },
+                    nutrition: { type: Type.STRING },
+                },
+                required: ["description", "ingredients", "nutrition"]
             }
         }
-        });
+    });
 
-        const text = response.text;
-        if (text) {
-            return JSON.parse(text);
-        }
+    // Accessing text as a property
+    const text = response.text;
+    if (text) {
+        return JSON.parse(text);
     }
 
     throw new Error("No API connection available");
