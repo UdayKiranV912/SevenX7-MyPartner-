@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Store, OrderMode } from '../types';
 import { getRoute, watchLocation, clearWatch } from '../services/locationService';
@@ -84,13 +83,13 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     let startLat = 12.9716;
     let startLng = 77.5946;
 
-    if (forcedCenter) {
+    if (forcedCenter && forcedCenter.lat != null && forcedCenter.lng != null) {
         startLat = forcedCenter.lat;
         startLng = forcedCenter.lng;
-    } else if (selectedStore) {
+    } else if (selectedStore && selectedStore.lat != null && selectedStore.lng != null) {
         startLat = selectedStore.lat;
         startLng = selectedStore.lng;
-    } else if (finalUserLat && finalUserLng) {
+    } else if (finalUserLat != null && finalUserLng != null) {
         startLat = finalUserLat;
         startLng = finalUserLng;
     }
@@ -139,7 +138,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
 
   useEffect(() => {
-      if (!isMapReady || !mapInstanceRef.current || !forcedCenter) return;
+      if (!isMapReady || !mapInstanceRef.current || !forcedCenter || forcedCenter.lat == null || forcedCenter.lng == null) return;
       setIsFollowingUser(false); 
       mapInstanceRef.current.flyTo([forcedCenter.lat, forcedCenter.lng], 18, { animate: true });
   }, [forcedCenter, isMapReady]);
@@ -150,8 +149,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         setInternalUserLoc({ lat: loc.lat, lng: loc.lng, acc: loc.accuracy });
         setGpsError(null);
     }, (err: any) => {
-        // Stringify the error message or use a friendly fallback
-        const message = err?.message || (typeof err === 'string' ? err : "GPS Signal Lost");
+        const message = err?.message ? String(err.message) : (typeof err === 'string' ? err : "GPS Signal Lost");
         setGpsError(message);
     });
     return () => clearWatch(watchId);
@@ -159,7 +157,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
 
   useEffect(() => {
     const L = (window as any).L;
-    if (!isMapReady || !L || !mapInstanceRef.current || !finalUserLat || !finalUserLng) return;
+    if (!isMapReady || !L || !mapInstanceRef.current || finalUserLat == null || finalUserLng == null) return;
     const latLng = [finalUserLat, finalUserLng];
     if (!isSelectionMode) {
         if (accuracyCircleRef.current) {
@@ -169,7 +167,9 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
             accuracyCircleRef.current = L.circle(latLng, { radius: finalAccuracy, color: 'transparent', fillColor: '#3b82f6', fillOpacity: 0.1 }).addTo(mapInstanceRef.current);
         }
     }
-    if (userMarkerRef.current) { userMarkerRef.current.setLatLng(latLng); }
+    if (userMarkerRef.current) { 
+        userMarkerRef.current.setLatLng(latLng); 
+    }
     else {
         const icon = L.divIcon({
           className: 'bg-transparent border-none',
@@ -187,6 +187,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     markersLayerRef.current.clearLayers();
     if (isSelectionMode) return;
     stores.forEach(store => {
+       if (store.lat == null || store.lng == null) return;
        const isSelected = selectedStore?.id === store.id;
        let color = '#f97316'; 
        let emoji = '🏪';
@@ -209,7 +210,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   useEffect(() => {
     const L = (window as any).L;
     if (!isMapReady || !L || !mapInstanceRef.current) return;
-    if (!driverLocation) {
+    if (!driverLocation || driverLocation.lat == null || driverLocation.lng == null) {
         if (driverMarkerRef.current) { driverMarkerRef.current.remove(); driverMarkerRef.current = null; }
         return;
     }
@@ -248,10 +249,10 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     const endLat = routeTarget?.lat ?? selectedStore?.lat;
     const endLng = routeTarget?.lng ?? selectedStore?.lng;
 
-    if (showRoute && startLat && startLng && endLat && endLng && !isSelectionMode) {
+    if (showRoute && startLat != null && startLng != null && endLat != null && endLng != null && !isSelectionMode) {
        getRoute(startLat, startLng, endLat, endLng)
          .then(route => {
-             if (route && mapInstanceRef.current) {
+             if (route && mapInstanceRef.current && route.coordinates && route.coordinates.length > 0) {
                 L.polyline(route.coordinates, { color: '#10b981', weight: 6, opacity: 0.9, lineCap: 'round', dashArray: '10, 15', className: 'animate-pulse' }).addTo(routeLayerRef.current);
                 L.polyline(route.coordinates, { color: '#065f46', weight: 8, opacity: 0.2, lineCap: 'round' }).addTo(routeLayerRef.current);
                 setRouteDistance((route.distance / 1000).toFixed(1) + ' km');
@@ -263,6 +264,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                    mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
                 }
              }
+         }).catch(err => {
+           console.warn("Routing failed", err);
          });
     }
   }, [selectedStore, showRoute, finalUserLat, finalUserLng, isMapReady, isSelectionMode, routeSource, routeTarget]);
@@ -270,7 +273,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   const handleRecenter = () => {
       setIsFollowingUser(true);
       if (onRequestLocation) onRequestLocation();
-      if (finalUserLat && finalUserLng && mapInstanceRef.current) {
+      if (finalUserLat != null && finalUserLng != null && mapInstanceRef.current) {
           mapInstanceRef.current.flyTo([finalUserLat, finalUserLng], 17, { animate: true });
       }
   };
@@ -280,7 +283,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       <div ref={mapContainerRef} className="w-full h-full z-0 bg-slate-100" />
       {gpsError && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-50/90 backdrop-blur text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold shadow-md z-[1000] border border-red-100 flex items-center gap-2">
-             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> {gpsError}
+             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> {String(gpsError)}
           </div>
       )}
       {isSelectionMode && (
@@ -298,7 +301,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRecenter(); }} className={`absolute bottom-6 right-4 z-[400] w-12 h-12 bg-white/90 backdrop-blur-md rounded-2xl shadow-float flex items-center justify-center transition-all border border-white active:scale-95 ${isFollowingUser ? 'text-blue-500 ring-2 ring-blue-100' : 'text-slate-600'}`} type="button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" /></svg></button>
       )}
       {selectedStore && !isSelectionMode && (
-         <div onClick={() => { setIsFollowingUser(false); mapInstanceRef.current?.flyTo([selectedStore.lat, selectedStore.lng], 17); }} className="absolute bottom-6 left-4 right-16 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-float flex items-center justify-between border border-white z-[400] animate-slide-up cursor-pointer ring-1 ring-slate-100">
+         <div onClick={() => { if (selectedStore.lat != null && selectedStore.lng != null) { setIsFollowingUser(false); mapInstanceRef.current?.flyTo([selectedStore.lat, selectedStore.lng], 17); } }} className="absolute bottom-6 left-4 right-16 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-float flex items-center justify-between border border-white z-[400] animate-slide-up cursor-pointer ring-1 ring-slate-100">
              <div className="flex items-center gap-3 overflow-hidden flex-1">
                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm text-white flex-shrink-0 ${selectedStore.type === 'produce' ? 'bg-emerald-50' : selectedStore.type === 'dairy' ? 'bg-blue-50' : (selectedStore as any).type === 'customer' ? 'bg-blue-600' : 'bg-orange-500'}`}>{selectedStore.type === 'produce' ? '🥦' : selectedStore.type === 'dairy' ? '🥛' : (selectedStore as any).type === 'customer' ? '🏠' : '🏪'}</div>
                  <div className="min-w-0">

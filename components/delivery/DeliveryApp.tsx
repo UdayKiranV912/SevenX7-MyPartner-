@@ -51,9 +51,11 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
     const watchId = watchLocation((loc) => {
         setCurrentLocation({ lat: loc.lat, lng: loc.lng });
         if (isOnline && user.id && !user.id.startsWith('demo-')) {
-            broadcastLocation(user.id, loc.lat, loc.lng);
+            broadcastLocation(user.id, loc.lat, loc.lng).catch(e => console.error("Location broadcast failed", e));
         }
-    }, () => {});
+    }, (err) => {
+        console.warn("Location monitoring issue:", err?.message || String(err));
+    });
     return () => clearWatch(watchId);
   }, [isOnline, user.id]);
 
@@ -78,8 +80,12 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
             } as any]);
             return;
         }
-        const orders = await getAvailableOrders();
-        setAvailableOrders(orders);
+        try {
+          const orders = await getAvailableOrders();
+          setAvailableOrders(orders);
+        } catch (err) {
+          console.error("Order fetch failed", err);
+        }
     };
     loadOrders();
     const interval = setInterval(loadOrders, 8000);
@@ -126,16 +132,23 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                             setVehicleData(v => ({ ...v, [v.type === 'ev_slow' ? 'model' : 'license']: val }));
                         }} 
                       />
-                      <button onClick={() => { updateUserProfile(user.id!, { vehicle_type: vehicleData.type } as any); setShowVehicleSetup(false); }} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all">Save & Continue</button>
+                      <button onClick={() => { if (user.id) updateUserProfile(user.id, { vehicle_type: vehicleData.type } as any).catch(e => console.error(e)); setShowVehicleSetup(false); }} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all">Save & Continue</button>
                   </div>
               </div>
           </div>
       );
   }
 
+  // Flatten available orders for MapVisualizer Store requirement (lat/lng at top level)
+  const mapStores = activeOrder ? [] : availableOrders.map(o => ({ 
+    ...o, 
+    lat: o.storeLocation?.lat, 
+    lng: o.storeLocation?.lng, 
+    type: 'general' 
+  } as any));
+
   return (
     <div className="fixed inset-0 bg-slate-50 flex flex-col font-sans overflow-hidden">
-      {/* HEADER: Small logo top-left, Name top-center, Profile top-right */}
       <header className="nav-glass px-6 py-4 sticky top-0 z-[100] flex justify-between items-center border-b border-white/20">
           <div className="w-24 flex items-center">
               <SevenX7Logo size="xs" />
@@ -157,10 +170,9 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
       <main className="flex-1 relative overflow-y-auto hide-scrollbar flex flex-col pb-24">
           {activeTab === 'TASKS' && (
               <div className="p-5 space-y-5 animate-fade-in">
-                  {/* Reduced Size Map */}
                   <div className="h-56 rounded-[2.5rem] overflow-hidden shadow-soft-xl border-4 border-white relative isolate">
                       <MapVisualizer 
-                          stores={activeOrder ? [] : availableOrders.map(o => ({ ...o, type: 'general' } as any))}
+                          stores={mapStores}
                           userLat={currentLocation?.lat || null}
                           userLng={currentLocation?.lng || null}
                           selectedStore={null}
@@ -176,7 +188,6 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                       </div>
                   </div>
 
-                  {/* Online/Offline Toggle */}
                   <div className={`bg-white p-4 rounded-[2rem] border border-white shadow-sm flex items-center justify-between transition-all ${isOnline ? 'bg-emerald-50/30' : 'opacity-60 grayscale'}`}>
                       <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duty Status</p>
@@ -200,7 +211,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                                           <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-lg shadow-lg">🏪</div>
                                           <div className="flex-1 min-w-0">
                                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pickup Address</p>
-                                              <p className="font-black text-sm truncate">{activeOrder.storeName}</p>
+                                              <p className="font-black text-sm truncate">{activeOrder.storeName || 'Store Location'}</p>
                                           </div>
                                       </div>
                                       <div className="h-4 w-px bg-white/20 ml-5"></div>
@@ -208,7 +219,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                                           <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-lg shadow-lg">🏠</div>
                                           <div className="flex-1 min-w-0">
                                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Drop Address</p>
-                                              <p className="font-black text-sm truncate">{activeOrder.deliveryAddress}</p>
+                                              <p className="font-black text-sm truncate">{activeOrder.deliveryAddress || 'Customer Location'}</p>
                                           </div>
                                       </div>
                                   </div>
@@ -229,25 +240,25 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                                           <div className="flex gap-4">
                                               <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-2xl border border-emerald-100 shadow-inner">📦</div>
                                               <div>
-                                                  <h4 className="font-black text-slate-800 text-base leading-tight">{order.storeName}</h4>
+                                                  <h4 className="font-black text-slate-800 text-base leading-tight">{order.storeName || 'Local Mart'}</h4>
                                                   <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tight">Express Assignment</p>
                                               </div>
                                           </div>
-                                          <div className="text-right"><p className="text-xl font-black text-slate-900">₹{order.splits?.deliveryFee}</p></div>
+                                          <div className="text-right"><p className="text-xl font-black text-slate-900">₹{order.splits?.deliveryFee || 30}</p></div>
                                       </div>
                                       <div className="space-y-3">
                                           <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                                               <span className="text-sm">🏪</span>
                                               <div className="flex-1 min-w-0">
                                                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Pickup Point</p>
-                                                  <p className="text-[10px] font-black text-slate-800 truncate">{order.storeName}</p>
+                                                  <p className="text-[10px] font-black text-slate-800 truncate">{order.storeName || 'Store'}</p>
                                               </div>
                                           </div>
                                           <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                                               <span className="text-sm">🏠</span>
                                               <div className="flex-1 min-w-0">
                                                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Drop Point</p>
-                                                  <p className="text-[10px] font-black text-slate-800 truncate">{order.deliveryAddress}</p>
+                                                  <p className="text-[10px] font-black text-slate-800 truncate">{order.deliveryAddress || 'Customer'}</p>
                                               </div>
                                           </div>
                                       </div>
@@ -263,6 +274,16 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                           <button onClick={() => setIsOnline(true)} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all">Go Online Now</button>
                       </div>
                   )}
+              </div>
+          )}
+
+          {activeTab === 'EARNINGS' && (
+              <div className="flex-1 overflow-y-auto p-5 pb-24 hide-scrollbar space-y-6 animate-fade-in">
+                  <div className="bg-white p-10 rounded-[3rem] shadow-soft border border-white text-center relative overflow-hidden">
+                      <div className="absolute top-0 left-0 right-0 h-1.5 bg-emerald-500"></div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Earnings Wallet</p>
+                      <h2 className="text-6xl font-black text-slate-900 tracking-tighter">₹{dailyEarnings}</h2>
+                  </div>
               </div>
           )}
 
