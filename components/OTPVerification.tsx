@@ -86,13 +86,12 @@ export const Auth: React.FC<AuthProps> = ({
       
       <div className="z-10 w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border border-slate-100">
         
-        {/* Logo Section */}
-        <div className="bg-white p-8 pb-4 text-center">
-            <div className="mb-4 flex justify-center">
-                <SevenX7Logo size="medium" />
+        {/* Logo Section - Increased to Large */}
+        <div className="bg-white p-10 pb-6 text-center">
+            <div className="mb-6 flex justify-center">
+                <SevenX7Logo size="large" />
             </div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight">My Partner</h1>
-            <p className="text-slate-400 text-[10px] font-bold mt-1 uppercase tracking-widest">Global Fleet Management</p>
+            <p className="text-slate-400 text-[10px] font-bold mt-2 uppercase tracking-[0.2em]">Partner Hub • Global Logistics</p>
         </div>
 
         {/* Auth Forms */}
@@ -144,7 +143,7 @@ export const Auth: React.FC<AuthProps> = ({
                                 />
                             </div>
                             {errorMsg && <p className="text-[10px] text-red-500 font-bold text-center bg-red-50 p-3 rounded-xl border border-red-100">{errorMsg}</p>}
-                            <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black active:scale-[0.98] transition-all">
+                            <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black active:scale-[0.98] transition-all uppercase tracking-widest text-xs">
                                 ACCESS DASHBOARD
                             </button>
                         </form>
@@ -184,8 +183,8 @@ export const Auth: React.FC<AuthProps> = ({
                                 className="w-full bg-slate-50 border-0 rounded-xl p-3.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
                                 required
                             />
-                            <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black active:scale-[0.98] transition-all mt-2">
-                                SUBMIT APPLICATION
+                            <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black active:scale-[0.98] transition-all mt-2 uppercase tracking-widest text-xs">
+                                JOIN THE FLEET
                             </button>
                         </form>
                     )}
@@ -210,7 +209,7 @@ export const Auth: React.FC<AuthProps> = ({
                                     maxLength={4}
                                 />
                                 {errorMsg && <p className="text-xs text-red-500 font-bold bg-red-50 p-2 rounded-lg">{errorMsg}</p>}
-                                <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black active:scale-[0.98] transition-all">
+                                <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black active:scale-[0.98] transition-all uppercase tracking-widest text-xs">
                                     VERIFY & START
                                 </button>
                             </form>
@@ -231,7 +230,6 @@ export const Auth: React.FC<AuthProps> = ({
                     <span className="text-xl group-hover:scale-110 transition-transform">🛵</span>
                     <span>TRY PARTNER DEMO</span>
                 </button>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Safe & Secure Logistics</p>
             </div>
         )}
       </div>

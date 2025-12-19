@@ -124,8 +124,8 @@ export const broadcastLocation = async (partnerId: string, lat: number, lng: num
         .update({ 
             current_lat: lat, 
             current_lng: lng,
-            last_lat: lat, // Legacy support
-            last_lng: lng  // Legacy support
+            last_lat: lat,
+            last_lng: lng
         })
         .eq('id', partnerId);
 };
