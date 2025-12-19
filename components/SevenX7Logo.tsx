@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface SevenX7LogoProps {
@@ -11,7 +12,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
       switch(size) {
           case 'xs': return 'text-[12px]';
           case 'small': return 'text-[16px]';
-          case 'medium': return 'text-3xl';
+          case 'medium': return 'text-2xl';
           case 'large': return 'text-5xl';
           case 'xl': return 'text-7xl';
           default: return 'text-base';
@@ -21,15 +22,15 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
   const isLarge = size === 'large' || size === 'xl';
   const textSizeClass = getTextSize();
   
-  const xSizeClass = size === 'xl' ? 'text-[120px]' : size === 'large' ? 'text-8xl' : size === 'medium' ? 'text-5xl' : size === 'xs' ? 'text-xl' : 'text-3xl';
+  const xSizeClass = size === 'xl' ? 'text-[100px]' : size === 'large' ? 'text-7xl' : size === 'medium' ? 'text-4xl' : size === 'xs' ? 'text-lg' : 'text-2xl';
   
   const getOverlapMargin = () => {
     switch(size) {
-      case 'xl': return 'mx-[-24px]';
-      case 'large': return 'mx-[-18px]';
-      case 'medium': return 'mx-[-10px]';
-      case 'xs': return 'mx-[-4px]';
-      default: return 'mx-[-6px]';
+      case 'xl': return 'mx-[-18px]';
+      case 'large': return 'mx-[-14px]';
+      case 'medium': return 'mx-[-8px]';
+      case 'xs': return 'mx-[-3px]';
+      default: return 'mx-[-5px]';
     }
   };
 
@@ -38,7 +39,6 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
   return (
     <div className="flex flex-col items-center">
       <div className="group flex items-center justify-center font-display select-none leading-none h-fit">
-        {/* SEVEN */}
         <span 
           className={`${textSizeClass} text-black font-black uppercase leading-none z-0`}
           style={{ letterSpacing: '-0.02em', fontWeight: 900 }}
@@ -46,7 +46,6 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
           Seven
         </span>
 
-        {/* X - The Overlaying Element */}
         <div 
           className={`relative flex items-center justify-center ${xSizeClass} leading-none ${marginClass} z-10 transition-transform group-hover:scale-110 duration-300`} 
           onClick={onNewsClick}
@@ -65,7 +64,6 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
            </span>
         </div>
 
-        {/* 7 */}
         <span 
           className={`${textSizeClass} text-black font-black uppercase leading-none z-0`}
           style={{ letterSpacing: '-0.02em', fontWeight: 900 }}
@@ -73,7 +71,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
           7
         </span>
       </div>
-      <span className={`font-black text-slate-400 uppercase tracking-[0.3em] ${isLarge ? 'text-base mt-2' : 'text-[9px] mt-1'}`}>
+      <span className={`font-black text-slate-400 uppercase tracking-[0.3em] ${isLarge ? 'text-sm mt-1' : 'text-[8px] mt-0.5'}`}>
         My Partner
       </span>
     </div>
