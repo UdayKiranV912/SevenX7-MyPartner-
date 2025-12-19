@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { UserState, Order, Store } from '../../types';
 import SevenX7Logo from '../SevenX7Logo';
@@ -24,15 +23,15 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
   const [dailyEarnings, setDailyEarnings] = useState(0); 
   const [completedCount, setCompletedCount] = useState(0);
 
-  // Calculator State
+  // Profit Calculator State
   const [calcMode, setCalcMode] = useState<'PETROL' | 'EV'>('PETROL');
   const [calcInputs, setCalcInputs] = useState({
+      grossEarnings: 0,
+      petrolPrice: 102.5,
       mileage: 45,
-      petrolPrice: 102,
-      distance: 25,
-      evRent: 15,
-      hours: 8,
-      grossEarnings: 1200
+      distanceTravelled: 30,
+      evRentPerHour: 15,
+      hoursWorked: 8
   });
 
   // Vehicle Setup State
@@ -43,7 +42,10 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
     license: user.licenseNumber || ''
   });
 
-  const simulationStartPos = useRef<{lat: number, lng: number} | null>(null);
+  // Sync inputs with daily earnings when earnings update
+  useEffect(() => {
+    setCalcInputs(prev => ({ ...prev, grossEarnings: dailyEarnings }));
+  }, [dailyEarnings]);
 
   // Load Real-time Rating & Profile
   useEffect(() => {
@@ -64,7 +66,6 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
         setCompletedCount(history.length);
         const total = history.reduce((sum, o) => sum + (o.splits?.deliveryFee || 30), 0);
         setDailyEarnings(total);
-        setCalcInputs(prev => ({ ...prev, grossEarnings: total }));
     };
     loadHistory();
     const interval = setInterval(loadHistory, 30000); 
@@ -149,11 +150,11 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
 
   const calculateProfit = () => {
       if (calcMode === 'PETROL') {
-          const cost = (calcInputs.distance / calcInputs.mileage) * calcInputs.petrolPrice;
-          return calcInputs.grossEarnings - cost;
+          const fuelCost = (calcInputs.distanceTravelled / calcInputs.mileage) * calcInputs.petrolPrice;
+          return calcInputs.grossEarnings - fuelCost;
       } else {
-          const cost = calcInputs.hours * calcInputs.evRent;
-          return calcInputs.grossEarnings - cost;
+          const rentalCost = calcInputs.hoursWorked * calcInputs.evRentPerHour;
+          return calcInputs.grossEarnings - rentalCost;
       }
   };
 
@@ -196,9 +197,9 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-50 flex flex-col font-sans overflow-hidden">
-      {/* HEADER RESTRUCTURED: Logo center, Profile Right */}
+      {/* HEADER: Profile moved to top-right, Logo center, Status Left */}
       <header className="nav-glass px-6 py-4 sticky top-0 z-[60] flex justify-between items-center border-b border-white/20">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-24">
               <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
               <button onClick={() => setIsOnline(!isOnline)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isOnline ? 'Online' : 'Offline'}</button>
           </div>
@@ -207,7 +208,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
               <SevenX7Logo size="small" />
           </div>
 
-          <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-sm font-black shadow-lg border border-white/20 active:scale-95 transition-all">
+          <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-sm font-black shadow-lg border border-white/20 active:scale-95 transition-all w-24 ml-auto max-w-[40px]">
               {user.name ? user.name[0] : '👤'}
           </button>
       </header>
@@ -323,7 +324,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                               <>
                                   <div className="space-y-1.5">
                                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Distance (km)</label>
-                                      <input type="number" value={calcInputs.distance} onChange={e => setCalcInputs({...calcInputs, distance: Number(e.target.value)})} className="w-full bg-slate-50 border-0 rounded-xl p-3 text-sm font-black text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                      <input type="number" value={calcInputs.distanceTravelled} onChange={e => setCalcInputs({...calcInputs, distanceTravelled: Number(e.target.value)})} className="w-full bg-slate-50 border-0 rounded-xl p-3 text-sm font-black text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none" />
                                   </div>
                                   <div className="space-y-1.5">
                                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mileage (km/L)</label>
@@ -338,11 +339,11 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                               <>
                                   <div className="space-y-1.5">
                                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Hours On-Duty</label>
-                                      <input type="number" value={calcInputs.hours} onChange={e => setCalcInputs({...calcInputs, hours: Number(e.target.value)})} className="w-full bg-slate-50 border-0 rounded-xl p-3 text-sm font-black text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                      <input type="number" value={calcInputs.hoursWorked} onChange={e => setCalcInputs({...calcInputs, hoursWorked: Number(e.target.value)})} className="w-full bg-slate-50 border-0 rounded-xl p-3 text-sm font-black text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none" />
                                   </div>
                                   <div className="space-y-1.5">
                                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Rent per Hr (₹)</label>
-                                      <input type="number" value={calcInputs.evRent} onChange={e => setCalcInputs({...calcInputs, evRent: Number(e.target.value)})} className="w-full bg-slate-50 border-0 rounded-xl p-3 text-sm font-black text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                      <input type="number" value={calcInputs.evRentPerHour} onChange={e => setCalcInputs({...calcInputs, evRentPerHour: Number(e.target.value)})} className="w-full bg-slate-50 border-0 rounded-xl p-3 text-sm font-black text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none" />
                                   </div>
                               </>
                           )}
@@ -375,7 +376,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 nav-glass border-t border-white/20 px-10 py-5 flex justify-between z-[70] shadow-[0_-20px_50px_rgba(0,0,0,0.08)]">
-           {[{ id: 'TASKS', icon: '🛵', label: 'Radar' }, { id: 'EARNINGS', icon: '💰', label: 'Wallet' }, { id: 'CALC', icon: '🧮', label: 'Calc' }, { id: 'PROFILE', icon: '👤', label: 'Account' }].map(item => (
+           {[{ id: 'TASKS', icon: '🛵', label: 'Radar' }, { id: 'EARNINGS', icon: '💰', label: 'Wallet' }, { id: 'CALC', icon: '🧮', label: 'Calc' }].map(item => (
              <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1.5 transition-all relative ${activeTab === item.id ? 'text-slate-900 scale-110' : 'text-slate-300'}`}>
                  <span className={`text-2xl transition-all duration-500 ${activeTab === item.id ? 'filter drop-shadow-md' : 'grayscale opacity-60'}`}>{item.icon}</span>
                  <span className={`text-[9px] font-black uppercase tracking-widest transition-opacity ${activeTab === item.id ? 'opacity-100' : 'opacity-0'}`}>{item.label}</span>

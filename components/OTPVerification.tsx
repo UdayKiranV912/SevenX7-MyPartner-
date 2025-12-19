@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { registerUser, loginUser } from '../services/userService';
 import { UserState } from '../types';
@@ -86,12 +85,11 @@ export const Auth: React.FC<AuthProps> = ({
       
       <div className="z-10 w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border border-slate-100">
         
-        {/* Logo Section - Increased to Large */}
-        <div className="bg-white p-10 pb-6 text-center">
-            <div className="mb-6 flex justify-center">
-                <SevenX7Logo size="large" />
+        {/* Logo Section - XL for impact */}
+        <div className="bg-white p-12 pb-8 text-center">
+            <div className="mb-8 flex justify-center">
+                <SevenX7Logo size="xl" />
             </div>
-            <p className="text-slate-400 text-[10px] font-bold mt-2 uppercase tracking-[0.2em]">Partner Hub • Global Logistics</p>
         </div>
 
         {/* Auth Forms */}
@@ -219,7 +217,6 @@ export const Auth: React.FC<AuthProps> = ({
             )}
         </div>
         
-        {/* Simplified Demo Footer */}
         {authMode !== 'VERIFY' && (
             <div className="bg-slate-50 p-6 text-center border-t border-slate-100 w-full flex flex-col gap-2">
                 <button 

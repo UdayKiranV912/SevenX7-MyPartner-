@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface SevenX7LogoProps {
@@ -11,26 +10,26 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
   const getTextSize = () => {
       switch(size) {
           case 'xs': return 'text-[12px]';
-          case 'small': return 'text-sm';
-          case 'medium': return 'text-2xl';
+          case 'small': return 'text-[16px]';
+          case 'medium': return 'text-3xl';
           case 'large': return 'text-5xl';
-          case 'xl': return 'text-6xl';
-          default: return 'text-sm';
+          case 'xl': return 'text-7xl';
+          default: return 'text-base';
       }
   };
 
   const isLarge = size === 'large' || size === 'xl';
   const textSizeClass = getTextSize();
   
-  const xSizeClass = size === 'xl' ? 'text-8xl' : size === 'large' ? 'text-7xl' : size === 'medium' ? 'text-4xl' : size === 'xs' ? 'text-lg' : 'text-2xl';
+  const xSizeClass = size === 'xl' ? 'text-[120px]' : size === 'large' ? 'text-8xl' : size === 'medium' ? 'text-5xl' : size === 'xs' ? 'text-xl' : 'text-3xl';
   
   const getOverlapMargin = () => {
     switch(size) {
-      case 'xl': return 'mx-[-18px]';
-      case 'large': return 'mx-[-14px]';
-      case 'medium': return 'mx-[-8px]';
-      case 'xs': return 'mx-[-3px]';
-      default: return 'mx-[-5px]';
+      case 'xl': return 'mx-[-24px]';
+      case 'large': return 'mx-[-18px]';
+      case 'medium': return 'mx-[-10px]';
+      case 'xs': return 'mx-[-4px]';
+      default: return 'mx-[-6px]';
     }
   };
 
@@ -58,7 +57,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
               style={{ 
                 fontFamily: 'Inter, sans-serif', 
                 fontWeight: 1000,
-                fontSize: '1.2em',
+                fontSize: '1.25em',
                 filter: 'drop-shadow(1px 0 0 white) drop-shadow(-1px 0 0 white) drop-shadow(0 1px 0 white) drop-shadow(0 -1px 0 white)'
               }}
            >
@@ -74,7 +73,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick }
           7
         </span>
       </div>
-      <span className={`font-black text-slate-400 uppercase tracking-[0.3em] ${isLarge ? 'text-sm mt-2' : 'text-[8px] mt-1'}`}>
+      <span className={`font-black text-slate-400 uppercase tracking-[0.3em] ${isLarge ? 'text-base mt-2' : 'text-[9px] mt-1'}`}>
         My Partner
       </span>
     </div>
