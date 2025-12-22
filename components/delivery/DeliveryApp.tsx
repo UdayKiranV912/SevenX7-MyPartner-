@@ -221,7 +221,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                       </div>
                       <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">{safeStr(user.name, 'Partner')}</h3>
                       
-                      <div className="w-full space-y-3">
+                      <div className="w-full space-y-3 text-left">
                           <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
                              <span className="text-[10px] font-black text-slate-400 uppercase">Vehicle Type</span>
                              <span className="text-xs font-black text-slate-800">{user.vehicleType === 'ev_slow' ? 'Eco EV' : 'Petrol / Fast EV'}</span>

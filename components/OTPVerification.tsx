@@ -55,14 +55,14 @@ export const Auth: React.FC<AuthProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-sm bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-scale-in">
-        <div className="p-10 pb-6 text-center flex flex-col items-center">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-full max-w-sm bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100 flex flex-col items-center animate-scale-in">
+        <div className="p-10 pb-6 text-center flex flex-col items-center w-full">
             <SevenX7Logo size="large" />
             <p className="text-slate-400 text-[10px] font-black mt-8 uppercase tracking-[0.3em]">Partner Portal Access</p>
         </div>
 
-        <div className="p-8 pt-0">
+        <div className="p-8 pt-0 w-full">
             <div className="flex bg-slate-50 p-1.5 rounded-2xl mb-8 border border-slate-100 shadow-inner">
                 <button onClick={() => setAuthMode('LOGIN')} className={`flex-1 py-3 text-xs font-black rounded-xl transition-all ${authMode === 'LOGIN' ? 'bg-white shadow-md text-slate-900' : 'text-slate-400'}`}>Sign In</button>
                 <button onClick={() => setAuthMode('REGISTER')} className={`flex-1 py-3 text-xs font-black rounded-xl transition-all ${authMode === 'REGISTER' ? 'bg-white shadow-md text-slate-900' : 'text-slate-400'}`}>Register</button>
@@ -93,7 +93,7 @@ export const Auth: React.FC<AuthProps> = ({
             )}
         </div>
         
-        <div className="bg-slate-50 p-8 text-center border-t border-slate-100">
+        <div className="bg-slate-50 p-8 text-center border-t border-slate-100 w-full">
             <button type="button" onClick={onPartnerDemoLogin} className="flex items-center justify-center gap-3 bg-white px-6 py-4 rounded-2xl border border-slate-200 text-xs font-black text-slate-600 shadow-sm w-full hover:bg-emerald-50 transition-all active:scale-95">
                 <span className="text-xl">🛵</span>
                 <span>TRY DEMO MODE</span>
