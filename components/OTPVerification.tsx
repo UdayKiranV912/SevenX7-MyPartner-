@@ -34,7 +34,7 @@ export const Auth: React.FC<AuthProps> = ({
           onLoginSuccess(user);
       } catch (err: any) {
           const msg = err?.message || (typeof err === 'string' ? err : 'Invalid credentials');
-          setErrorMsg(String(msg));
+          setErrorMsg(typeof msg === 'string' ? msg : 'Error');
           setLoading(false);
       }
   };
@@ -49,7 +49,7 @@ export const Auth: React.FC<AuthProps> = ({
           onLoginSuccess(user);
       } catch (err: any) {
           const msg = err?.message || (typeof err === 'string' ? err : 'Registration failed');
-          setErrorMsg(String(msg));
+          setErrorMsg(typeof msg === 'string' ? msg : 'Error');
           setLoading(false);
       }
   };

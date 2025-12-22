@@ -134,7 +134,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
       <header className="bg-white/90 backdrop-blur-xl px-5 py-4 sticky top-0 z-[100] flex justify-between items-center border-b border-slate-100 shadow-sm">
           <SevenX7Logo size="xs" />
           <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg shadow-slate-200 active:scale-95 transition-all">
-             {user.name ? safeStr(user.name[0]) : 'P'}
+             {user.name && typeof user.name === 'string' ? user.name[0] : 'P'}
           </button>
       </header>
 
@@ -217,7 +217,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
               <div className="p-5 space-y-6 animate-fade-in">
                   <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-white flex flex-col items-center">
                       <div className="w-24 h-24 bg-slate-900 rounded-[2rem] mb-6 text-white flex items-center justify-center text-4xl font-black shadow-xl ring-8 ring-slate-50">
-                         {user.name ? safeStr(user.name[0]) : 'P'}
+                         {user.name && typeof user.name === 'string' ? user.name[0] : 'P'}
                       </div>
                       <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">{safeStr(user.name, 'Partner')}</h3>
                       

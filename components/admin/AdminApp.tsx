@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { UserState, Store } from '../../types';
 import SevenX7Logo from '../SevenX7Logo';
@@ -34,15 +33,11 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-      <header className="h-14 bg-slate-950 border-b border-white/5 px-5 flex items-center justify-between z-[100] shadow-xl">
-          <div className="flex items-center gap-3">
-              <SevenX7Logo size="xs" />
-          </div>
-          <div className="flex gap-4">
-              <button onClick={() => setActiveTab('PROFILE')} className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center text-[10px] font-black text-slate-900 shadow-lg">
-                  {user.name && typeof user.name === 'string' ? safeStr(user.name[0]) : 'A'}
-              </button>
-          </div>
+      <header className="h-16 bg-slate-950 border-b border-white/5 px-5 flex items-center justify-between z-[100] shadow-xl">
+          <SevenX7Logo size="xs" />
+          <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-900 flex items-center justify-center text-[10px] font-black shadow-lg">
+              {user.name && typeof user.name === 'string' ? user.name[0] : 'A'}
+          </button>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 pb-16 md:pb-4 space-y-6 hide-scrollbar">
@@ -102,15 +97,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
             </div>
         )}
 
-        {activeTab === 'TASKS' && (
-            <div className="h-[450px] bg-slate-950 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
-                <MapVisualizer stores={MOCK_STORES} userLat={12.9716} userLng={77.5946} selectedStore={null} onSelectStore={()=>{}} mode="DELIVERY" className="h-full" enableLiveTracking={false} />
-            </div>
-        )}
-
         {activeTab === 'PROFILE' && (
             <div className="max-w-xs mx-auto text-center mt-10">
-                <div className="w-16 h-16 bg-emerald-500 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl font-black text-slate-900">{user.name && typeof user.name === 'string' ? safeStr(user.name[0]) : 'A'}</div>
+                <div className="w-16 h-16 bg-emerald-500 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl font-black text-slate-900">{user.name && typeof user.name === 'string' ? user.name[0] : 'A'}</div>
                 <h3 className="text-lg font-black">{safeStr(user.name, 'Admin')}</h3>
                 <button onClick={onLogout} className="mt-8 w-full py-3 bg-red-500/10 text-red-500 rounded-xl font-black uppercase text-[8px] tracking-widest border border-red-500/20 active:scale-95 transition-all">Sign Out</button>
             </div>
