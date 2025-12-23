@@ -2,6 +2,24 @@
 import React from 'react';
 import { Product } from '../types';
 
+/**
+ * Robust helper to prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            return fallback;
+        } catch(e) { return fallback; }
+    }
+    return fallback;
+};
+
 interface StickerProductProps {
   product: Product;
   onAdd: (product: Product) => void;
@@ -53,8 +71,8 @@ export const StickerProduct: React.FC<StickerProductProps> = ({ product, onAdd, 
       {/* Content Area */}
       <div className="flex-1 flex flex-col">
         <div className="flex-1">
-          <h3 className="font-bold text-slate-800 text-sm leading-snug line-clamp-2 mb-1 group-hover:text-brand-dark transition-colors">{product.name}</h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{product.category}</p>
+          <h3 className="font-bold text-slate-800 text-sm leading-snug line-clamp-2 mb-1 group-hover:text-brand-dark transition-colors">{safeStr(product.name)}</h3>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{safeStr(product.category)}</p>
         </div>
 
         <div className="flex items-end justify-between mt-3 pt-2">

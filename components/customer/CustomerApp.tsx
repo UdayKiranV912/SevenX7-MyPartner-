@@ -133,15 +133,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col overflow-hidden font-sans">
-      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-5 py-3 flex items-center justify-between z-[60] shrink-0">
-        <SevenX7Logo size="xs" />
+      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-5 py-2 flex items-center justify-between z-[60] shrink-0 h-12">
+        <SevenX7Logo size="xs" hideBrandName={true} />
         <div className="flex items-center gap-2">
-          <div className="bg-slate-50 border border-slate-100 rounded-full px-3 py-1 flex items-center gap-2 max-w-[100px] cursor-pointer" onClick={() => setActiveView('PROFILE')}>
+          <div className="bg-slate-50 border border-slate-100 rounded-full px-3 py-0.5 flex items-center gap-2 max-w-[120px] cursor-pointer" onClick={() => setActiveView('PROFILE')}>
             <span className="text-emerald-500 text-[6px] animate-pulse">●</span>
             <span className="text-[7px] font-black text-slate-700 truncate uppercase tracking-tighter">{safeStr(currentAddress)}</span>
           </div>
-          <button onClick={() => setActiveView('CART')} className="relative w-8 h-8 bg-slate-900 rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md">
-            <span className="text-xs">🛒</span>
+          <button onClick={() => setActiveView('CART')} className="relative w-7 h-7 bg-slate-900 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-md">
+            <span className="text-[10px]">🛒</span>
             {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white shadow-sm">{cart.length}</span>}
           </button>
         </div>

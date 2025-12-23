@@ -1,6 +1,24 @@
 
 import React, { useEffect, useState } from 'react';
 
+/**
+ * Robust helper to prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            return fallback;
+        } catch(e) { return fallback; }
+    }
+    return fallback;
+};
+
 interface PaymentGatewayProps {
   amount: number;
   onSuccess: () => void;
@@ -89,16 +107,16 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({ amount, onSucces
                             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm text-brand-DEFAULT">🏪</div>
                             <div>
                                 <p className="text-xs font-bold text-brand-dark uppercase">To Store</p>
-                                <p className="text-xs text-slate-500 font-mono">{splits.storeUpi}</p>
+                                <p className="text-xs text-slate-500 font-mono">{safeStr(splits.storeUpi)}</p>
                             </div>
                         </div>
-                        <span className="font-black text-2xl text-slate-900">₹{amount}</span>
+                        <span className="font-black text-2xl text-slate-900">₹{safeStr(amount)}</span>
                     </div>
 
                     {splits.deliveryFee > 0 && (
                         <div className="bg-slate-50 px-3 py-2 rounded-xl text-center">
                             <p className="text-[10px] text-slate-500 font-bold">
-                                Includes ₹{splits.deliveryFee} delivery fee (Paid to Store)
+                                Includes ₹{safeStr(splits.deliveryFee)} delivery fee (Paid to Store)
                             </p>
                         </div>
                     )}
@@ -114,7 +132,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({ amount, onSucces
                         onClick={handlePay}
                         className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-black active:scale-95 transition-all mt-4"
                     >
-                        Pay ₹{amount}
+                        Pay ₹{safeStr(amount)}
                     </button>
                 </div>
              </div>

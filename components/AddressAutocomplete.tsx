@@ -2,6 +2,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { searchAddress } from '../services/locationService';
 
+/**
+ * Robust helper to prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            return fallback;
+        } catch(e) { return fallback; }
+    }
+    return fallback;
+};
+
 interface AddressAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
@@ -47,15 +65,16 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   }, []);
 
   const handleSelect = (item: any) => {
-    onChange(item.display_name); // Update input text
-    onSelect(item.lat, item.lng, item.display_name); // Pass data back
+    const addr = safeStr(item.display_name);
+    onChange(addr); // Update input text
+    onSelect(item.lat, item.lng, addr); // Pass data back
     setShowSuggestions(false);
   };
 
   return (
     <div className={`relative ${className}`} ref={wrapperRef}>
       <textarea
-        value={value}
+        value={safeStr(value)}
         onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
         placeholder={placeholder}
         className="w-full bg-slate-50 border-0 rounded-2xl p-4 text-sm font-bold text-slate-700 placeholder-slate-300 focus:ring-2 focus:ring-brand-DEFAULT focus:bg-white resize-none shadow-inner transition-all"
@@ -71,7 +90,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
               className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-none flex items-center gap-2"
             >
               <span className="text-lg">📍</span>
-              <p className="text-xs font-medium text-slate-600 line-clamp-2">{item.display_name}</p>
+              <p className="text-xs font-medium text-slate-600 line-clamp-2">{safeStr(item.display_name)}</p>
             </div>
           ))}
           <div className="p-2 text-center bg-slate-50 text-[10px] text-slate-400 font-bold uppercase">

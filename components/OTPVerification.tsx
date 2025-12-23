@@ -4,6 +4,24 @@ import { registerUser, loginUser } from '../services/userService';
 import { UserState } from '../types';
 import SevenX7Logo from './SevenX7Logo';
 
+/**
+ * Robust helper to prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            return fallback;
+        } catch(e) { return fallback; }
+    }
+    return fallback;
+};
+
 interface AuthProps {
   onLoginSuccess: (user: UserState) => void;
   onDemoLogin: () => void;
@@ -72,7 +90,7 @@ export const Auth: React.FC<AuthProps> = ({
             {loading ? (
                 <div className="py-12 flex flex-col items-center">
                     <div className="w-10 h-10 border-4 border-emerald-100 border-t-emerald-500 rounded-full animate-spin mb-6"></div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{statusMsg}</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{safeStr(statusMsg)}</p>
                 </div>
             ) : (
                 <form onSubmit={authMode === 'LOGIN' ? handleStandardLogin : handleRegister} className="space-y-4">
@@ -86,7 +104,7 @@ export const Auth: React.FC<AuthProps> = ({
                     <input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none border border-transparent focus:border-emerald-500 shadow-inner" required />
                     <input type="password" placeholder="Password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none border border-transparent focus:border-emerald-500 shadow-inner" required />
                     
-                    {errorMsg && <p className="text-[10px] text-red-500 font-bold text-center bg-red-50 p-4 rounded-2xl border border-red-100">{errorMsg}</p>}
+                    {errorMsg && <p className="text-[10px] text-red-500 font-bold text-center bg-red-50 p-4 rounded-2xl border border-red-100">{safeStr(errorMsg)}</p>}
                     
                     <button type="submit" className="w-full bg-slate-900 text-white py-4.5 rounded-[1.5rem] font-black shadow-xl uppercase tracking-widest text-xs active:scale-95 transition-all mt-4">
                       {authMode === 'LOGIN' ? 'Start Delivery Session' : 'Create Operator Profile'}

@@ -46,17 +46,34 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-      <header className="h-16 bg-slate-950 border-b border-white/5 px-5 flex items-center justify-between z-[100] shadow-xl">
-          <SevenX7Logo size="xs" />
-          <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-900 flex items-center justify-center text-[10px] font-black shadow-lg">
+      <header className="h-12 bg-slate-950 border-b border-white/5 px-5 flex items-center justify-between z-[100] shadow-xl relative">
+          <SevenX7Logo size="xs" hideBrandName={true} />
+          
+          {/* CENTERED OPERATOR NAME */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+              <span className="text-[10px] font-black text-white uppercase tracking-widest truncate max-w-[140px]">
+                {safeStr(user.name, 'Admin')}
+              </span>
+          </div>
+
+          <button onClick={() => setActiveTab('PROFILE')} className="w-8 h-8 rounded-xl bg-emerald-500 text-slate-900 flex items-center justify-center text-[10px] font-black shadow-lg">
               {safeStr(user.name, 'A').charAt(0)}
           </button>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 pb-16 md:pb-4 space-y-6 hide-scrollbar">
         {activeTab === 'DASHBOARD' && (
-            <div className="animate-fade-in space-y-6">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="animate-fade-in space-y-6 flex flex-col items-center">
+                {/* CENTERED PARTNER IDENTIFIER (Sub-hero) */}
+                <div className="w-full text-center py-6">
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-2 opacity-80">Active Control Center</p>
+                    <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter uppercase mb-1 drop-shadow-sm">
+                        {safeStr(user.name, 'Operator')}
+                    </h2>
+                    <div className="h-1 w-12 bg-emerald-500 mx-auto rounded-full mt-4"></div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 w-full">
                     {[
                       { label: 'Platform Rev', val: '₹42,850', color: 'text-white' }, 
                       { label: 'Liability', val: `₹${safeStr(totalLiability.toLocaleString(), '0')}`, color: 'text-orange-400' }, 
@@ -69,13 +86,59 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
                         </div>
                     ))}
                 </div>
-                <div className="h-64 bg-slate-950 rounded-[2.5rem] border border-white/5 overflow-hidden relative">
+
+                <div className="h-64 bg-slate-950 rounded-[2.5rem] border border-white/5 overflow-hidden relative w-full">
                     <MapVisualizer stores={MOCK_STORES} userLat={12.9716} userLng={77.5946} selectedStore={null} onSelectStore={()=>{}} mode="DELIVERY" className="h-full opacity-60" enableLiveTracking={false} />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none"></div>
                     <div className="absolute bottom-4 left-4 flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         <p className="text-[9px] font-black uppercase text-emerald-400 tracking-wider">Live Traffic Command</p>
                     </div>
+                </div>
+            </div>
+        )}
+
+        {activeTab === 'TASKS' && (
+            <div className="animate-fade-in space-y-4">
+                <div className="flex justify-between items-center px-2">
+                    <h2 className="text-xl font-black uppercase tracking-tight">Active Command Radar</h2>
+                    <span className="flex items-center gap-2 text-[8px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping"></span>
+                        Live Tracking
+                    </span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                        { id: '101', store: 'Nandini Parlour', dest: 'HSR Sec 2', status: 'En-route', time: '4m' },
+                        { id: '102', store: 'MK Ahmed', dest: 'Indiranagar', status: 'Packing', time: '8m' },
+                        { id: '103', store: 'Hopcoms', dest: 'Domlur', status: 'Delayed', time: '15m' },
+                        { id: '104', store: 'Local Mart', dest: 'Koramangala', status: 'Accepted', time: '2m' }
+                    ].map(task => (
+                        <div key={task.id} className="bg-slate-950/50 p-5 rounded-[2.5rem] border border-white/5 flex items-center justify-between group">
+                            <div className="flex items-center gap-4 min-w-0">
+                                <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-lg">🛵</div>
+                                <div className="min-w-0">
+                                    <p className="text-xs font-black truncate">{safeStr(task.store)} → {safeStr(task.dest)}</p>
+                                    <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest mt-0.5">Order #{task.id} • {task.time} ago</p>
+                                </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                                <span className={`text-[7px] font-black px-2 py-1 rounded-full uppercase tracking-widest border ${
+                                    task.status === 'En-route' ? 'text-blue-400 border-blue-400/20 bg-blue-400/5' :
+                                    task.status === 'Delayed' ? 'text-red-400 border-red-400/20 bg-red-400/5' :
+                                    'text-emerald-400 border-emerald-400/20 bg-emerald-400/5'
+                                }`}>
+                                    {safeStr(task.status)}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="h-48 bg-slate-950/50 rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center text-slate-500 gap-2">
+                    <div className="w-8 h-8 border-2 border-white/5 border-t-emerald-500 rounded-full animate-spin"></div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.3em]">Syncing satellite telemetry...</p>
                 </div>
             </div>
         )}

@@ -22,10 +22,8 @@ const safeStr = (val: any, fallback: string = ''): string => {
     if (typeof val === 'boolean') return String(val);
     if (typeof val === 'object') {
         try {
-            // Check for common string properties in case it's a wrapped object
             if (val.message && typeof val.message === 'string') return val.message;
             if (val.name && typeof val.name === 'string') return val.name;
-            // Last resort: attempt to stringify if it's simple, or just fallback
             return fallback;
         } catch(e) { return fallback; }
     }
@@ -178,9 +176,17 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-50 flex flex-col font-sans overflow-hidden">
-      <header className="bg-white/90 backdrop-blur-xl px-5 py-4 sticky top-0 z-[100] flex justify-between items-center border-b border-slate-100 shadow-sm">
-          <SevenX7Logo size="xs" />
-          <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg active:scale-95 transition-all">
+      <header className="bg-white/90 backdrop-blur-xl px-5 flex justify-between items-center border-b border-slate-100 shadow-sm h-12 sticky top-0 z-[100] relative">
+          <SevenX7Logo size="xs" hideBrandName={true} />
+          
+          {/* CENTERED PARTNER NAME */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+              <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest truncate max-w-[140px]">
+                {safeStr(user.name, 'Partner')}
+              </span>
+          </div>
+
+          <button onClick={() => setActiveTab('PROFILE')} className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg active:scale-95 transition-all">
              {safeStr(user.name, 'P').charAt(0)}
           </button>
       </header>

@@ -6,6 +6,24 @@ import { INITIAL_PRODUCTS, MOCK_STORES } from '../constants';
 import { reverseGeocode } from '../services/locationService';
 import { AddressAutocomplete } from './AddressAutocomplete';
 
+/**
+ * Robust helper to prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            return fallback;
+        } catch(e) { return fallback; }
+    }
+    return fallback;
+};
+
 // --- Helper Component for Row Animation ---
 interface CartItemRowProps {
   item: CartItem;
@@ -47,9 +65,9 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onUpdateQuantity, index
         
         {/* Details */}
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-           <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{item.name}</h3>
+           <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{safeStr(item.name)}</h3>
            {item.selectedBrand && item.selectedBrand !== 'Generic' && (
-               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit">{item.selectedBrand}</span>
+               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit">{safeStr(item.selectedBrand)}</span>
            )}
            <div className="flex items-center gap-2 mt-0.5">
                <span className="text-xs font-bold text-slate-800">₹{item.price}</span>
@@ -101,7 +119,7 @@ const SuggestionsList: React.FC<SuggestionsProps> = ({ suggestions, onAddProduct
                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-2xl self-center mb-2 shadow-sm">
                             {product.emoji}
                         </div>
-                        <div className="font-bold text-slate-800 text-xs truncate mb-1">{product.name}</div>
+                        <div className="font-bold text-slate-800 text-xs truncate mb-1">{safeStr(product.name)}</div>
                         <div className="flex justify-between items-center mt-auto pt-2">
                             <span className="text-xs font-bold text-slate-500">₹{product.price}</span>
                             <button 
@@ -371,9 +389,9 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
                                {storeInfo.storeType === 'produce' ? '🥦' : storeInfo.storeType === 'dairy' ? '🥛' : '🏪'}
                            </div>
                            <div className="flex-1">
-                               <h3 className="font-black text-slate-800 text-sm">{storeInfo.storeName}</h3>
+                               <h3 className="font-black text-slate-800 text-sm">{safeStr(storeInfo.storeName)}</h3>
                                <p className="text-[10px] text-slate-400 font-bold uppercase">
-                                   {items.length} item{items.length !== 1 ? 's' : ''} • {storeObj ? storeObj.distance : 'Nearby'}
+                                   {items.length} item{items.length !== 1 ? 's' : ''} • {storeObj ? safeStr(storeObj.distance) : 'Nearby'}
                                </p>
                            </div>
                       </div>
