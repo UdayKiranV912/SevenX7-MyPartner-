@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { UserState, Order } from '../../types';
 import SevenX7Logo from '../SevenX7Logo';
 import { MapVisualizer } from '../MapVisualizer';
-import { getAvailableOrders, acceptOrder, broadcastLocation } from '../../services/deliveryService';
-import { watchLocation, clearWatch } from '../../services/locationService';
+import { getAvailableOrders, acceptOrder, broadcastLocation, getPartnerOrderHistory } from '../../services/deliveryService';
+import { watchLocation, clearWatch, getBrowserLocation } from '../../services/locationService';
 import { updateUserProfile } from '../../services/userService';
 
 interface DeliveryAppProps {
@@ -23,6 +23,16 @@ const safeStr = (val: any, fallback: string = ''): string => {
     return fallback;
 };
 
+// Mock History for Demo Mode
+const MOCK_HISTORY = [
+    { id: 'h1', storeName: 'Nandini Milk Parlour', date: '2023-10-24T10:30:00Z', fee: 45 },
+    { id: 'h2', storeName: 'MK Ahmed Bazaar', date: '2023-10-24T09:15:00Z', fee: 30 },
+    { id: 'h3', storeName: 'Hopcoms Fresh', date: '2023-10-23T18:45:00Z', fee: 60 },
+    { id: 'h4', storeName: 'Daily Needs Mart', date: '2023-10-23T14:20:00Z', fee: 35 },
+    { id: 'h5', storeName: 'HSR Local Mart', date: '2023-10-22T11:10:00Z', fee: 50 },
+    { id: 'h6', storeName: 'Indiranagar Mart', date: '2023-10-22T08:00:00Z', fee: 40 },
+];
+
 export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'TASKS' | 'EARNINGS' | 'CALC' | 'PROFILE'>('TASKS');
   const [isOnline, setIsOnline] = useState(true);
@@ -30,6 +40,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [dailyEarnings, setDailyEarnings] = useState(450); 
+  const [earningHistory, setEarningHistory] = useState<any[]>([]);
 
   const [calcInputs, setCalcInputs] = useState({ 
     mileage: 45, 
@@ -49,47 +60,79 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
     license: user.licenseNumber || '' 
   });
 
+  // Aggressive initial location fetch
   useEffect(() => {
+    getBrowserLocation()
+        .then(loc => setCurrentLocation({ lat: loc.lat, lng: loc.lng }))
+        .catch(() => {});
+  }, []);
+
+  // Location Tracking Logic
+  useEffect(() => {
+    let firstFix = true;
     const watchId = watchLocation((loc) => {
-        if (loc.accuracy > 60 && currentLocation) return;
+        // RELAXED GUARD for better detection: initial fix is always accepted, 
+        // subsequent ones must be < 150m accuracy to filter extreme jitter.
+        if (!firstFix && loc.accuracy > 150 && currentLocation) return;
         
-        setCurrentLocation({ lat: loc.lat, lng: loc.lng });
+        firstFix = false;
+        const newLoc = { lat: loc.lat, lng: loc.lng };
+        setCurrentLocation(newLoc);
+        
         if (isOnline && user.id && !user.id.startsWith('demo-')) {
             broadcastLocation(user.id, loc.lat, loc.lng).catch(e => console.error(e));
         }
-    }, () => {});
+    }, (err) => console.error("Location error:", err));
+    
     return () => clearWatch(watchId);
-  }, [isOnline, user.id, currentLocation]);
+  }, [isOnline, user.id]);
 
+  // Load Orders & History
   useEffect(() => {
     if (!isOnline || activeOrder || showVehicleSetup) return;
-    const loadOrders = async () => {
+    
+    const loadData = async () => {
         if (user.id?.startsWith('demo-')) {
-            if (!currentLocation) return;
-            setAvailableOrders([{
-                id: 'demo-task-1', 
-                date: new Date().toISOString(), 
-                items: [], 
-                total: 450, 
-                status: 'Ready', 
-                mode: 'DELIVERY', 
-                storeName: 'Indiranagar Mart', 
-                storeLocation: { lat: currentLocation.lat + 0.005, lng: currentLocation.lng + 0.005 }, 
-                userLocation: { lat: currentLocation.lat - 0.005, lng: currentLocation.lng - 0.005 }, 
-                deliveryAddress: 'Apt 402, Green Glen', 
-                splits: { deliveryFee: 45, storeAmount: 450 }
-            } as any]);
+            // Seed Demo Orders
+            if (currentLocation) {
+                setAvailableOrders([{
+                    id: 'demo-task-1', 
+                    date: new Date().toISOString(), 
+                    items: [], 
+                    total: 450, 
+                    status: 'Ready', 
+                    mode: 'DELIVERY', 
+                    storeName: 'Indiranagar Mart', 
+                    storeLocation: { lat: currentLocation.lat + 0.005, lng: currentLocation.lng + 0.005 }, 
+                    userLocation: { lat: currentLocation.lat - 0.005, lng: currentLocation.lng - 0.005 }, 
+                    deliveryAddress: 'Apt 402, Green Glen', 
+                    splits: { deliveryFee: 45, storeAmount: 450 }
+                } as any]);
+            }
+            if (earningHistory.length === 0) setEarningHistory(MOCK_HISTORY);
             return;
         }
+
+        // Real User Data
         try {
-          const orders = await getAvailableOrders();
+          const [orders, history] = await Promise.all([
+              getAvailableOrders(),
+              getPartnerOrderHistory(user.id!)
+          ]);
           setAvailableOrders(orders);
+          setEarningHistory(history.map(h => ({
+              id: h.id,
+              storeName: h.storeName,
+              date: h.date,
+              fee: h.splits?.deliveryFee || 30
+          })));
         } catch (err) { console.error(err); }
     };
-    loadOrders();
-    const interval = setInterval(loadOrders, 8000);
+
+    loadData();
+    const interval = setInterval(loadData, 8000);
     return () => clearInterval(interval);
-  }, [isOnline, activeOrder, currentLocation, showVehicleSetup, user.id]);
+  }, [isOnline, activeOrder, currentLocation, showVehicleSetup, user.id, earningHistory.length]);
 
   const handleAccept = async (order: Order) => {
       if (user.id?.startsWith('demo-')) { 
@@ -102,6 +145,18 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
       } catch (e) { 
         alert("Mission assigned elsewhere."); 
       }
+  };
+
+  const handleCompleteOrder = () => {
+      const fee = activeOrder?.splits?.deliveryFee || 30;
+      setDailyEarnings(d => d + fee);
+      setEarningHistory(prev => [{
+          id: activeOrder?.id || Date.now().toString(),
+          storeName: activeOrder?.storeName || 'Store',
+          date: new Date().toISOString(),
+          fee: fee
+      }, ...prev]);
+      setActiveOrder(null);
   };
 
   if (showVehicleSetup) {
@@ -133,15 +188,15 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
     <div className="fixed inset-0 bg-slate-50 flex flex-col font-sans overflow-hidden">
       <header className="bg-white/90 backdrop-blur-xl px-5 py-4 sticky top-0 z-[100] flex justify-between items-center border-b border-slate-100 shadow-sm">
           <SevenX7Logo size="xs" />
-          <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg shadow-slate-200 active:scale-95 transition-all">
-             {user.name && typeof user.name === 'string' ? user.name[0] : 'P'}
+          <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg shadow-slate-200 active:scale-95 transition-all overflow-hidden">
+             {safeStr(user.name).charAt(0) || 'P'}
           </button>
       </header>
 
       <main className="flex-1 relative overflow-y-auto hide-scrollbar flex flex-col pb-20 bg-[#F8FAFC]">
           {activeTab === 'TASKS' && (
               <div className="p-4 space-y-4 animate-fade-in">
-                  <div className="h-64 rounded-[2.5rem] overflow-hidden shadow-md border-4 border-white relative isolate">
+                  <div className="h-64 rounded-[2.5rem] overflow-hidden shadow-md border-4 border-white relative isolate bg-slate-200">
                       <MapVisualizer stores={mapStores} userLat={currentLocation?.lat || null} userLng={currentLocation?.lng || null} selectedStore={null} onSelectStore={() => {}} mode="DELIVERY" className="h-full rounded-none" forcedCenter={currentLocation} />
                   </div>
 
@@ -161,7 +216,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                               <div className="space-y-3">
                                   <p className="font-bold text-xs truncate opacity-80">{safeStr(activeOrder.storeName)} → {safeStr(activeOrder.deliveryAddress)}</p>
                               </div>
-                              <button onClick={() => { setDailyEarnings(d => d + (activeOrder.splits?.deliveryFee || 0)); setActiveOrder(null); }} className="w-full mt-6 py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all">End Mission</button>
+                              <button onClick={handleCompleteOrder} className="w-full mt-6 py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all">End Mission</button>
                           </div>
                       ) : availableOrders.length === 0 ? (
                           <div className="py-20 text-center bg-white rounded-[3rem] border border-slate-100 flex flex-col items-center gap-4">
@@ -172,7 +227,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                           availableOrders.map(order => (
                               <div key={order.id} className="bg-white p-5 rounded-[2.5rem] border border-white shadow-sm flex flex-col gap-4 animate-slide-up">
                                   <div className="flex justify-between items-center">
-                                      <div className="flex gap-3 items-center"><div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-xl">📦</div><h4 className="font-black text-slate-800 text-sm">{safeStr(order.storeName)}</h4></div>
+                                      <div className="flex gap-3 items-center"><div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-xl">📦</div><h4 className="font-black text-slate-800 text-sm truncate max-w-[120px]">{safeStr(order.storeName)}</h4></div>
                                       <div className="text-right"><p className="text-lg font-black text-slate-900 leading-none">₹{order.splits?.deliveryFee || 30}</p><p className="text-[7px] font-black text-slate-400 uppercase mt-1">Admin Fee</p></div>
                                   </div>
                                   <button onClick={() => handleAccept(order)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">Start Assignment</button>
@@ -184,11 +239,35 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
           )}
 
           {activeTab === 'EARNINGS' && (
-              <div className="p-5 space-y-6 animate-fade-in text-center">
-                  <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-white">
+              <div className="p-5 space-y-6 animate-fade-in">
+                  <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-white text-center">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">SevenX7 HQ Balance</p>
                       <h2 className="text-6xl font-black text-slate-900 tracking-tighter">₹{dailyEarnings}</h2>
                       <p className="text-[10px] font-bold text-emerald-500 uppercase mt-8 tracking-[0.2em] bg-emerald-50 py-2 rounded-xl">Payouts Guaranteed</p>
+                  </div>
+
+                  <div className="space-y-4">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Mission History</h3>
+                      <div className="space-y-3">
+                          {earningHistory.length === 0 ? (
+                              <div className="bg-white p-8 rounded-[2rem] text-center border border-slate-100">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No history yet</p>
+                              </div>
+                          ) : (
+                              earningHistory.map((item) => (
+                                  <div key={item.id} className="bg-white p-4 rounded-[1.5rem] border border-white shadow-sm flex items-center justify-between animate-slide-up">
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-lg">🏁</div>
+                                          <div className="min-w-0 flex-1">
+                                              <p className="text-[11px] font-black text-slate-800 truncate">{safeStr(item.storeName)}</p>
+                                              <p className="text-[9px] font-bold text-slate-400">{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                          </div>
+                                      </div>
+                                      <span className="text-xs font-black text-emerald-500 shrink-0">+₹{item.fee}</span>
+                                  </div>
+                              ))
+                          )}
+                      </div>
                   </div>
               </div>
           )}
@@ -217,9 +296,9 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
               <div className="p-5 space-y-6 animate-fade-in">
                   <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-white flex flex-col items-center">
                       <div className="w-24 h-24 bg-slate-900 rounded-[2rem] mb-6 text-white flex items-center justify-center text-4xl font-black shadow-xl ring-8 ring-slate-50">
-                         {user.name && typeof user.name === 'string' ? user.name[0] : 'P'}
+                         {safeStr(user.name).charAt(0) || 'P'}
                       </div>
-                      <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8">{safeStr(user.name, 'Partner')}</h3>
+                      <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8 truncate w-full text-center">{safeStr(user.name, 'Partner')}</h3>
                       
                       <div className="w-full space-y-3 text-left">
                           <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -228,7 +307,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                           </div>
                           <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
                              <span className="text-[10px] font-black text-slate-400 uppercase">Email</span>
-                             <span className="text-xs font-black text-slate-800">{safeStr(user.email, 'Not provided')}</span>
+                             <span className="text-xs font-black text-slate-800 truncate ml-4">{safeStr(user.email, 'Not provided')}</span>
                           </div>
                           <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
                              <span className="text-[10px] font-black text-slate-400 uppercase">Phone</span>
