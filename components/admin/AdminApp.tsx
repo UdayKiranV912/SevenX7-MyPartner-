@@ -9,10 +9,14 @@ interface AdminAppProps {
   onLogout: () => void;
 }
 
+/**
+ * Enhanced safeStr to strictly prevent [object Object] rendering
+ */
 const safeStr = (val: any, fallback: string = ''): string => {
     if (val === null || val === undefined) return fallback;
     if (typeof val === 'string') return val;
-    if (typeof val === 'number') return String(val);
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
     if (typeof val === 'object') {
         if (val.message && typeof val.message === 'string') return val.message;
         if (val.name && typeof val.name === 'string') return val.name;
@@ -43,7 +47,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
       <header className="h-16 bg-slate-950 border-b border-white/5 px-5 flex items-center justify-between z-[100] shadow-xl">
           <SevenX7Logo size="xs" />
           <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-900 flex items-center justify-center text-[10px] font-black shadow-lg">
-              {safeStr(user.name).charAt(0) || 'A'}
+              {safeStr(user.name, 'A').charAt(0)}
           </button>
       </header>
 
@@ -75,7 +79,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
             <div className="animate-fade-in space-y-4">
                 <div className="bg-emerald-500 rounded-[2.5rem] p-8 text-slate-900 shadow-xl">
                     <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-60">Total Unsettled Fees</p>
-                    <h2 className="text-4xl font-black">₹{totalLiability.toLocaleString()}</h2>
+                    <h2 className="text-4xl font-black">₹{safeStr(totalLiability.toLocaleString(), '0')}</h2>
                     <button onClick={() => setPartners(prev => prev.map(p => ({...p, balance: 0})))} className="mt-6 bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all">Settle All Payouts</button>
                 </div>
 
@@ -90,7 +94,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
                                         <p className="text-[8px] text-slate-500 font-mono truncate">{safeStr(p.upi)}</p>
                                     </div>
                                     <div className="text-right shrink-0">
-                                        <p className={`text-xs font-black ${p.balance > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>₹{p.balance}</p>
+                                        <p className={`text-xs font-black ${p.balance > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>₹{safeStr(p.balance)}</p>
                                         <button onClick={() => setPartners(prev => prev.map(pa => pa.id === p.id ? {...pa, balance: 0} : pa))} disabled={p.balance === 0} className={`text-[7px] font-black uppercase tracking-widest ${p.balance === 0 ? 'text-slate-700' : 'text-white underline'}`}>Settle</button>
                                     </div>
                                 </div>
@@ -107,10 +111,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
                                         <div className={`w-1.5 h-1.5 rounded-full ${tx.type === 'PAYOUT' ? 'bg-orange-500' : 'bg-emerald-500'}`}></div>
                                         <div>
                                             <p className="text-[10px] font-black">{safeStr(tx.user)}</p>
-                                            <p className="text-[7px] text-slate-500 uppercase">{tx.type}</p>
+                                            <p className="text-[7px] text-slate-500 uppercase">{safeStr(tx.type)}</p>
                                         </div>
                                     </div>
-                                    <p className={`text-[10px] font-black ${tx.amount < 0 ? 'text-orange-400' : 'text-emerald-400'}`}>{tx.amount < 0 ? '-' : '+'}₹{Math.abs(tx.amount)}</p>
+                                    <p className={`text-[10px] font-black ${tx.amount < 0 ? 'text-orange-400' : 'text-emerald-400'}`}>{tx.amount < 0 ? '-' : '+'}₹{safeStr(Math.abs(tx.amount))}</p>
                                 </div>
                             ))}
                         </div>
@@ -142,7 +146,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
         {activeTab === 'PROFILE' && (
             <div className="max-w-xs mx-auto text-center mt-10">
                 <div className="w-16 h-16 bg-emerald-500 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl font-black text-slate-900 shadow-xl ring-4 ring-white/5">
-                    {safeStr(user.name).charAt(0) || 'A'}
+                    {safeStr(user.name, 'A').charAt(0)}
                 </div>
                 <h3 className="text-lg font-black truncate">{safeStr(user.name, 'Admin')}</h3>
                 <p className="text-[10px] text-slate-500 font-black uppercase mt-1">Superuser • HQ Command</p>

@@ -11,11 +11,16 @@ interface DeliveryAppProps {
   onLogout: () => void;
 }
 
+/**
+ * Enhanced safeStr to strictly prevent [object Object] rendering
+ */
 const safeStr = (val: any, fallback: string = ''): string => {
     if (val === null || val === undefined) return fallback;
     if (typeof val === 'string') return val;
-    if (typeof val === 'number') return String(val);
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
     if (typeof val === 'object') {
+        // Prevent React from trying to render an object which might result in [object Object]
         if (val.message && typeof val.message === 'string') return val.message;
         if (val.name && typeof val.name === 'string') return val.name;
         return fallback;
@@ -30,17 +35,32 @@ const MOCK_HISTORY = [
     { id: 'h3', storeName: 'Hopcoms Fresh', date: '2023-10-23T18:45:00Z', fee: 60 },
     { id: 'h4', storeName: 'Daily Needs Mart', date: '2023-10-23T14:20:00Z', fee: 35 },
     { id: 'h5', storeName: 'HSR Local Mart', date: '2023-10-22T11:10:00Z', fee: 50 },
-    { id: 'h6', storeName: 'Indiranagar Mart', date: '2023-10-22T08:00:00Z', fee: 40 },
+];
+
+// Mock Settled Payouts from Admin (Settlements Tab)
+const MOCK_SETTLEMENTS = [
+    { id: 's1', amount: 1250, adminUpi: 'sevenx7.admin@upi', txId: 'TXN8829104421', date: '2023-10-23T18:00:00Z' },
+    { id: 's2', amount: 840, adminUpi: 'sevenx7.admin@upi', txId: 'TXN7731209930', date: '2023-10-20T17:30:00Z' },
+    { id: 's3', amount: 2100, adminUpi: 'sevenx7.admin@upi', txId: 'TXN6628310029', date: '2023-10-15T19:15:00Z' },
 ];
 
 export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'TASKS' | 'EARNINGS' | 'CALC' | 'PROFILE'>('TASKS');
+  const [activeTab, setActiveTab] = useState<'TASKS' | 'EARNINGS' | 'SETTLEMENTS' | 'CALC' | 'PROFILE'>('TASKS');
   const [isOnline, setIsOnline] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [dailyEarnings, setDailyEarnings] = useState(450); 
   const [earningHistory, setEarningHistory] = useState<any[]>([]);
+  const [settlements, setSettlements] = useState<any[]>([]);
+
+  // Profile Edit State
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+      email: safeStr(user.email),
+      phone: safeStr(user.phone),
+      vehicleModel: safeStr(user.vehicleModel)
+  });
 
   const [calcInputs, setCalcInputs] = useState({ 
     mileage: 45, 
@@ -60,40 +80,46 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
     license: user.licenseNumber || '' 
   });
 
-  // Aggressive initial location fetch
+  // Location Tracking logic
   useEffect(() => {
-    getBrowserLocation()
-        .then(loc => setCurrentLocation({ lat: loc.lat, lng: loc.lng }))
-        .catch(() => {});
-  }, []);
+    const refreshLoc = () => {
+        getBrowserLocation()
+            .then(loc => {
+                const newLoc = { lat: loc.lat, lng: loc.lng };
+                setCurrentLocation(newLoc);
+                if (isOnline && user.id && !user.id.startsWith('demo-')) {
+                    broadcastLocation(user.id, loc.lat, loc.lng).catch(e => console.error(e));
+                }
+            })
+            .catch(() => {
+                if (user.id?.startsWith('demo-') && !currentLocation) {
+                    setCurrentLocation({ lat: 12.9716, lng: 77.5946 });
+                }
+            });
+    };
 
-  // Location Tracking Logic
+    refreshLoc();
+    const locInterval = setInterval(refreshLoc, 15000); 
+    return () => clearInterval(locInterval);
+  }, [isOnline, user.id]);
+
   useEffect(() => {
     let firstFix = true;
     const watchId = watchLocation((loc) => {
-        // RELAXED GUARD for better detection: initial fix is always accepted, 
-        // subsequent ones must be < 150m accuracy to filter extreme jitter.
         if (!firstFix && loc.accuracy > 150 && currentLocation) return;
-        
         firstFix = false;
-        const newLoc = { lat: loc.lat, lng: loc.lng };
-        setCurrentLocation(newLoc);
-        
-        if (isOnline && user.id && !user.id.startsWith('demo-')) {
-            broadcastLocation(user.id, loc.lat, loc.lng).catch(e => console.error(e));
-        }
-    }, (err) => console.error("Location error:", err));
+        setCurrentLocation({ lat: loc.lat, lng: loc.lng });
+    }, (err) => console.error("Location watch error:", err));
     
     return () => clearWatch(watchId);
-  }, [isOnline, user.id]);
+  }, []);
 
-  // Load Orders & History
+  // Load Orders, History & Settlements
   useEffect(() => {
     if (!isOnline || activeOrder || showVehicleSetup) return;
     
     const loadData = async () => {
         if (user.id?.startsWith('demo-')) {
-            // Seed Demo Orders
             if (currentLocation) {
                 setAvailableOrders([{
                     id: 'demo-task-1', 
@@ -110,10 +136,10 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                 } as any]);
             }
             if (earningHistory.length === 0) setEarningHistory(MOCK_HISTORY);
+            if (settlements.length === 0) setSettlements(MOCK_SETTLEMENTS);
             return;
         }
 
-        // Real User Data
         try {
           const [orders, history] = await Promise.all([
               getAvailableOrders(),
@@ -132,7 +158,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
     loadData();
     const interval = setInterval(loadData, 8000);
     return () => clearInterval(interval);
-  }, [isOnline, activeOrder, currentLocation, showVehicleSetup, user.id, earningHistory.length]);
+  }, [isOnline, activeOrder, currentLocation, showVehicleSetup, user.id, earningHistory.length, settlements.length]);
 
   const handleAccept = async (order: Order) => {
       if (user.id?.startsWith('demo-')) { 
@@ -157,6 +183,22 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
           fee: fee
       }, ...prev]);
       setActiveOrder(null);
+  };
+
+  const saveProfileChanges = async () => {
+      if (user.id && !user.id.startsWith('demo-')) {
+          try {
+              await updateUserProfile(user.id, {
+                  email: profileForm.email,
+                  phone_number: profileForm.phone,
+                  vehicle_model: profileForm.vehicleModel
+              } as any);
+          } catch (e) {
+              alert("Failed to save profile changes.");
+              return;
+          }
+      }
+      setIsEditingProfile(false);
   };
 
   if (showVehicleSetup) {
@@ -189,7 +231,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
       <header className="bg-white/90 backdrop-blur-xl px-5 py-4 sticky top-0 z-[100] flex justify-between items-center border-b border-slate-100 shadow-sm">
           <SevenX7Logo size="xs" />
           <button onClick={() => setActiveTab('PROFILE')} className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg shadow-slate-200 active:scale-95 transition-all overflow-hidden">
-             {safeStr(user.name).charAt(0) || 'P'}
+             {safeStr(user.name, 'P').charAt(0)}
           </button>
       </header>
 
@@ -212,7 +254,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                       activeOrder ? (
                           <div className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl relative overflow-hidden">
                               <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-4">Task Active • Paid by SevenX7 HQ</p>
-                              <h3 className="text-2xl font-black mb-4 tracking-tighter">₹{activeOrder.splits?.deliveryFee}</h3>
+                              <h3 className="text-2xl font-black mb-4 tracking-tighter">₹{safeStr(activeOrder.splits?.deliveryFee, '30')}</h3>
                               <div className="space-y-3">
                                   <p className="font-bold text-xs truncate opacity-80">{safeStr(activeOrder.storeName)} → {safeStr(activeOrder.deliveryAddress)}</p>
                               </div>
@@ -228,7 +270,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                               <div key={order.id} className="bg-white p-5 rounded-[2.5rem] border border-white shadow-sm flex flex-col gap-4 animate-slide-up">
                                   <div className="flex justify-between items-center">
                                       <div className="flex gap-3 items-center"><div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-xl">📦</div><h4 className="font-black text-slate-800 text-sm truncate max-w-[120px]">{safeStr(order.storeName)}</h4></div>
-                                      <div className="text-right"><p className="text-lg font-black text-slate-900 leading-none">₹{order.splits?.deliveryFee || 30}</p><p className="text-[7px] font-black text-slate-400 uppercase mt-1">Admin Fee</p></div>
+                                      <div className="text-right"><p className="text-lg font-black text-slate-900 leading-none">₹{safeStr(order.splits?.deliveryFee, '30')}</p><p className="text-[7px] font-black text-slate-400 uppercase mt-1">Admin Fee</p></div>
                                   </div>
                                   <button onClick={() => handleAccept(order)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">Start Assignment</button>
                               </div>
@@ -242,7 +284,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
               <div className="p-5 space-y-6 animate-fade-in">
                   <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-white text-center">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">SevenX7 HQ Balance</p>
-                      <h2 className="text-6xl font-black text-slate-900 tracking-tighter">₹{dailyEarnings}</h2>
+                      <h2 className="text-6xl font-black text-slate-900 tracking-tighter">₹{safeStr(dailyEarnings, '0')}</h2>
                       <p className="text-[10px] font-bold text-emerald-500 uppercase mt-8 tracking-[0.2em] bg-emerald-50 py-2 rounded-xl">Payouts Guaranteed</p>
                   </div>
 
@@ -263,11 +305,49 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                                               <p className="text-[9px] font-bold text-slate-400">{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                                           </div>
                                       </div>
-                                      <span className="text-xs font-black text-emerald-500 shrink-0">+₹{item.fee}</span>
+                                      <span className="text-xs font-black text-emerald-500 shrink-0">+₹{safeStr(item.fee)}</span>
                                   </div>
                               ))
                           )}
                       </div>
+                  </div>
+              </div>
+          )}
+
+          {activeTab === 'SETTLEMENTS' && (
+              <div className="p-5 space-y-6 animate-fade-in">
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight px-2">HQ Transfers</h2>
+                  <div className="space-y-4">
+                      {settlements.map((s) => (
+                          <div key={s.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white relative overflow-hidden group hover:ring-2 hover:ring-emerald-500/20 transition-all animate-slide-up">
+                              <div className="flex justify-between items-start mb-4">
+                                  <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest">Verified Settlement</div>
+                                  <p className="text-[9px] font-bold text-slate-400">{new Date(s.date).toLocaleDateString()}</p>
+                              </div>
+                              <div className="flex justify-between items-end">
+                                  <div>
+                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Source Admin UPI</p>
+                                      <p className="text-xs font-black text-slate-800">{safeStr(s.adminUpi)}</p>
+                                  </div>
+                                  <div className="text-right">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Amount Recvd</p>
+                                      <p className="text-3xl font-black text-emerald-500 tracking-tighter">₹{safeStr(s.amount)}</p>
+                                  </div>
+                              </div>
+                              <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center">
+                                  <div>
+                                      <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Transaction ID</p>
+                                      <p className="text-[10px] font-mono text-slate-500 font-bold">{safeStr(s.txId)}</p>
+                                  </div>
+                                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">📋</div>
+                              </div>
+                          </div>
+                      ))}
+                      {settlements.length === 0 && (
+                          <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest bg-white rounded-[3rem] border border-slate-100">
+                             No settled payouts yet
+                          </div>
+                      )}
                   </div>
               </div>
           )}
@@ -277,7 +357,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                   <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16"></div>
                       <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Net Estimated Profit</p>
-                      <h2 className="text-5xl font-black tracking-tighter text-emerald-400">₹{(calcInputs.gross - (calcInputs.distance / calcInputs.mileage * calcInputs.petrolPrice)).toFixed(0)}</h2>
+                      <h2 className="text-5xl font-black tracking-tighter text-emerald-400">₹{safeStr((calcInputs.gross - (calcInputs.distance / calcInputs.mileage * calcInputs.petrolPrice)).toFixed(0), '0')}</h2>
                   </div>
                   <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-white space-y-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -296,7 +376,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
               <div className="p-5 space-y-6 animate-fade-in">
                   <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-white flex flex-col items-center">
                       <div className="w-24 h-24 bg-slate-900 rounded-[2rem] mb-6 text-white flex items-center justify-center text-4xl font-black shadow-xl ring-8 ring-slate-50">
-                         {safeStr(user.name).charAt(0) || 'P'}
+                         {safeStr(user.name, 'P').charAt(0)}
                       </div>
                       <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8 truncate w-full text-center">{safeStr(user.name, 'Partner')}</h3>
                       
@@ -305,34 +385,74 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                              <span className="text-[10px] font-black text-slate-400 uppercase">Vehicle Type</span>
                              <span className="text-xs font-black text-slate-800">{user.vehicleType === 'ev_slow' ? 'Eco EV' : 'Petrol / Fast EV'}</span>
                           </div>
-                          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                             <span className="text-[10px] font-black text-slate-400 uppercase">Email</span>
-                             <span className="text-xs font-black text-slate-800 truncate ml-4">{safeStr(user.email, 'Not provided')}</span>
+
+                          <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Email</label>
+                              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                 {isEditingProfile ? (
+                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full" value={profileForm.email} onChange={e => setProfileForm({...profileForm, email: e.target.value})} />
+                                 ) : (
+                                     <span className="text-xs font-black text-slate-800 truncate">{safeStr(user.email, 'Not provided')}</span>
+                                 )}
+                              </div>
                           </div>
-                          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                             <span className="text-[10px] font-black text-slate-400 uppercase">Phone</span>
-                             <span className="text-xs font-black text-slate-800">{safeStr(user.phone, 'Not linked')}</span>
+
+                          <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Phone</label>
+                              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                 {isEditingProfile ? (
+                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} />
+                                 ) : (
+                                     <span className="text-xs font-black text-slate-800">{safeStr(user.phone, 'Not linked')}</span>
+                                 )}
+                              </div>
                           </div>
-                          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                             <span className="text-[10px] font-black text-slate-400 uppercase">Vehicle #</span>
-                             <span className="text-xs font-black text-slate-800">{safeStr(user.vehicleModel || vehicleData.model, 'Pending')}</span>
+
+                          <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Vehicle #</label>
+                              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                 {isEditingProfile ? (
+                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full" value={profileForm.vehicleModel} onChange={e => setProfileForm({...profileForm, vehicleModel: e.target.value})} />
+                                 ) : (
+                                     <span className="text-xs font-black text-slate-800">{safeStr(user.vehicleModel || vehicleData.model, 'Pending')}</span>
+                                 )}
+                              </div>
                           </div>
-                          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                             <span className="text-[10px] font-black text-slate-400 uppercase">License #</span>
-                             <span className="text-xs font-black text-slate-800">{safeStr(user.licenseNumber || vehicleData.license, 'Pending')}</span>
+
+                          <div className="space-y-1 opacity-70">
+                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">License # (Fixed)</label>
+                              <div className="flex justify-between items-center bg-slate-100 p-4 rounded-2xl border border-slate-200">
+                                 <span className="text-xs font-black text-slate-500">{safeStr(user.licenseNumber || vehicleData.license, 'Pending')}</span>
+                                 <span className="text-[8px] font-black text-slate-400 uppercase">Verified</span>
+                              </div>
                           </div>
                       </div>
 
-                      <button onClick={onLogout} className="mt-10 w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-red-100 active:scale-95 transition-all">Go Offline</button>
+                      <div className="w-full flex flex-col gap-3 mt-10">
+                        {isEditingProfile ? (
+                            <button onClick={saveProfileChanges} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-100 active:scale-95 transition-all">Save Profile</button>
+                        ) : (
+                            <button onClick={() => {
+                                setProfileForm({
+                                    email: safeStr(user.email),
+                                    phone: safeStr(user.phone),
+                                    vehicleModel: safeStr(user.vehicleModel || vehicleData.model)
+                                });
+                                setIsEditingProfile(true);
+                            }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all">Edit Details</button>
+                        )}
+                        <button onClick={onLogout} className="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-red-100 active:scale-95 transition-all">Go Offline</button>
+                      </div>
                   </div>
               </div>
           )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-t border-slate-100 flex items-center justify-around z-[110] px-6">
+      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-t border-slate-100 flex items-center justify-around z-[110] px-4">
            {[
              { id: 'TASKS', icon: '🛵', label: 'Tasks' }, 
              { id: 'EARNINGS', icon: '💰', label: 'Wallet' }, 
+             { id: 'SETTLEMENTS', icon: '📥', label: 'Settled' },
              { id: 'CALC', icon: '🧮', label: 'Profit' }
            ].map(item => (
              <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1 transition-all flex-1 ${activeTab === item.id ? 'text-slate-900' : 'text-slate-400'}`}>
