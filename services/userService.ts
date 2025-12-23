@@ -43,12 +43,15 @@ export const syncUserWithSupabase = async (
             name: existingUser.full_name || '',
             address: existingUser.address || '',
             role: existingUser.role || 'delivery_partner',
+            vehicleType: existingUser.vehicle_type,
+            vehicleModel: existingUser.vehicle_model,
+            licenseNumber: existingUser.license_number,
+            upiId: existingUser.upi_id,
             savedCards: MOCK_CARDS,
             location: null
         };
     }
 
-    // 2. If user doesn't exist but has authenticated via widget, return temp state
     return {
       isAuthenticated: true,
       id: 'temp-' + Date.now(),
@@ -78,8 +81,7 @@ export const syncUserWithSupabase = async (
 };
 
 // Standard Email/Password Registration
-export const registerUser = async (email: string, password: string, fullName: string, phone: string): Promise<UserState> => {
-    // 1. Sign up with Supabase Auth
+export const registerUser = async (email: string, password: string, fullName: string, phone: string, upiId: string): Promise<UserState> => {
     const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -87,7 +89,8 @@ export const registerUser = async (email: string, password: string, fullName: st
             data: {
                 full_name: fullName,
                 phone: phone,
-                role: 'delivery_partner' 
+                role: 'delivery_partner',
+                upi_id: upiId
             }
         }
     });
@@ -95,7 +98,6 @@ export const registerUser = async (email: string, password: string, fullName: st
     if (authError) throw authError;
     if (!authData.user) throw new Error("Registration failed. Please try again.");
 
-    // 2. Create entry in 'profiles' table
     const { error: profileError } = await supabase
         .from('profiles')
         .insert({
@@ -103,12 +105,17 @@ export const registerUser = async (email: string, password: string, fullName: st
             email: email,
             full_name: fullName,
             phone_number: phone,
+            upi_id: upiId,
             address: '',
             role: 'delivery_partner' 
         });
 
     if (profileError) {
         console.error("Profile Creation Failed:", profileError);
+        // If profile creation fails due to trigger (invalid UPI), we might want to alert the user
+        if (profileError.message.includes('valid UPI ID')) {
+            throw new Error("Invalid UPI ID format. Please check and try again.");
+        }
     }
 
     return {
@@ -117,6 +124,7 @@ export const registerUser = async (email: string, password: string, fullName: st
         phone: phone,
         email: email,
         name: fullName,
+        upiId: upiId,
         address: '',
         role: 'delivery_partner',
         savedCards: [],
@@ -126,7 +134,6 @@ export const registerUser = async (email: string, password: string, fullName: st
 
 // Standard Email/Password Login
 export const loginUser = async (email: string, password: string): Promise<UserState> => {
-    // 1. Authenticate
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -135,23 +142,20 @@ export const loginUser = async (email: string, password: string): Promise<UserSt
     if (authError) throw authError;
     if (!authData.user) throw new Error("Login failed");
 
-    // 2. Fetch Profile from 'profiles'
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authData.user.id)
       .single();
 
-    // 3. Self-Healing: If profile is missing
     if (!profileData || profileError) {
-        console.warn("Profile missing in database. Attempting self-healing...");
-        
         const metadata = authData.user.user_metadata;
         const newProfile = {
             id: authData.user.id,
             email: authData.user.email,
             full_name: metadata?.full_name || 'User',
             phone_number: metadata?.phone || '',
+            upi_id: metadata?.upi_id || '',
             address: '',
             role: 'delivery_partner'
         };
@@ -171,6 +175,10 @@ export const loginUser = async (email: string, password: string): Promise<UserSt
                 name: healedProfile.full_name || '',
                 address: healedProfile.address || '',
                 role: healedProfile.role || 'delivery_partner',
+                vehicleType: healedProfile.vehicle_type,
+                vehicleModel: healedProfile.vehicle_model,
+                licenseNumber: healedProfile.license_number,
+                upiId: healedProfile.upi_id,
                 savedCards: MOCK_CARDS,
                 location: null
             };
@@ -185,12 +193,26 @@ export const loginUser = async (email: string, password: string): Promise<UserSt
         name: profileData?.full_name || authData.user.user_metadata?.full_name || '',
         address: profileData?.address || '',
         role: profileData?.role || 'delivery_partner',
+        vehicleType: profileData?.vehicle_type,
+        vehicleModel: profileData?.vehicle_model,
+        licenseNumber: profileData?.license_number,
+        upiId: profileData?.upi_id,
         savedCards: MOCK_CARDS,
         location: null
     };
 };
 
-export const updateUserProfile = async (id: string, updates: { full_name?: string; address?: string; email?: string; phone_number?: string; role?: string }) => {
+export const updateUserProfile = async (id: string, updates: { 
+    full_name?: string; 
+    address?: string; 
+    email?: string; 
+    phone_number?: string; 
+    role?: string;
+    vehicle_type?: string;
+    vehicle_model?: string;
+    license_number?: string;
+    upi_id?: string;
+}) => {
   const { data, error } = await supabase
     .from('profiles')
     .update(updates)

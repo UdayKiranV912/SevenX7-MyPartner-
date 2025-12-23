@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { UserState, Order } from '../../types';
 import SevenX7Logo from '../SevenX7Logo';
 import { MapVisualizer } from '../MapVisualizer';
-import { getAvailableOrders, acceptOrder, broadcastLocation, getPartnerOrderHistory } from '../../services/deliveryService';
+import { getAvailableOrders, acceptOrder, broadcastLocation, getPartnerOrderHistory, getSettlements } from '../../services/deliveryService';
 import { watchLocation, clearWatch, getBrowserLocation } from '../../services/locationService';
 import { updateUserProfile } from '../../services/userService';
 
@@ -12,7 +13,7 @@ interface DeliveryAppProps {
 }
 
 /**
- * Enhanced safeStr to strictly prevent [object Object] rendering
+ * Hardened safeStr helper to strictly prevent [object Object] rendering
  */
 const safeStr = (val: any, fallback: string = ''): string => {
     if (val === null || val === undefined) return fallback;
@@ -20,7 +21,7 @@ const safeStr = (val: any, fallback: string = ''): string => {
     if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
     if (typeof val === 'boolean') return String(val);
     if (typeof val === 'object') {
-        // Prevent React from trying to render an object which might result in [object Object]
+        // Return fallback instead of stringifying complex objects to UI
         if (val.message && typeof val.message === 'string') return val.message;
         if (val.name && typeof val.name === 'string') return val.name;
         return fallback;
@@ -28,20 +29,15 @@ const safeStr = (val: any, fallback: string = ''): string => {
     return fallback;
 };
 
-// Mock History for Demo Mode
+// Mock Data for Demo Mode only
 const MOCK_HISTORY = [
     { id: 'h1', storeName: 'Nandini Milk Parlour', date: '2023-10-24T10:30:00Z', fee: 45 },
     { id: 'h2', storeName: 'MK Ahmed Bazaar', date: '2023-10-24T09:15:00Z', fee: 30 },
-    { id: 'h3', storeName: 'Hopcoms Fresh', date: '2023-10-23T18:45:00Z', fee: 60 },
-    { id: 'h4', storeName: 'Daily Needs Mart', date: '2023-10-23T14:20:00Z', fee: 35 },
-    { id: 'h5', storeName: 'HSR Local Mart', date: '2023-10-22T11:10:00Z', fee: 50 },
 ];
 
-// Mock Settled Payouts from Admin (Settlements Tab)
 const MOCK_SETTLEMENTS = [
-    { id: 's1', amount: 1250, adminUpi: 'sevenx7.admin@upi', txId: 'TXN8829104421', date: '2023-10-23T18:00:00Z' },
-    { id: 's2', amount: 840, adminUpi: 'sevenx7.admin@upi', txId: 'TXN7731209930', date: '2023-10-20T17:30:00Z' },
-    { id: 's3', amount: 2100, adminUpi: 'sevenx7.admin@upi', txId: 'TXN6628310029', date: '2023-10-15T19:15:00Z' },
+    { id: 's1', delivery_fee: 1250, admin_upi: 'sevenx7.admin@upi', tx_id: 'TXN8829104421', created_at: '2023-10-23T18:00:00Z' },
+    { id: 's2', delivery_fee: 840, admin_upi: 'sevenx7.admin@upi', tx_id: 'TXN7731209930', created_at: '2023-10-20T17:30:00Z' },
 ];
 
 export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
@@ -80,7 +76,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
     license: user.licenseNumber || '' 
   });
 
-  // Location Tracking logic
+  // Location logic
   useEffect(() => {
     const refreshLoc = () => {
         getBrowserLocation()
@@ -97,24 +93,12 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                 }
             });
     };
-
     refreshLoc();
     const locInterval = setInterval(refreshLoc, 15000); 
     return () => clearInterval(locInterval);
   }, [isOnline, user.id]);
 
-  useEffect(() => {
-    let firstFix = true;
-    const watchId = watchLocation((loc) => {
-        if (!firstFix && loc.accuracy > 150 && currentLocation) return;
-        firstFix = false;
-        setCurrentLocation({ lat: loc.lat, lng: loc.lng });
-    }, (err) => console.error("Location watch error:", err));
-    
-    return () => clearWatch(watchId);
-  }, []);
-
-  // Load Orders, History & Settlements
+  // Load Data
   useEffect(() => {
     if (!isOnline || activeOrder || showVehicleSetup) return;
     
@@ -141,9 +125,10 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
         }
 
         try {
-          const [orders, history] = await Promise.all([
+          const [orders, history, settledData] = await Promise.all([
               getAvailableOrders(),
-              getPartnerOrderHistory(user.id!)
+              getPartnerOrderHistory(user.id!),
+              getSettlements(user.id!)
           ]);
           setAvailableOrders(orders);
           setEarningHistory(history.map(h => ({
@@ -152,6 +137,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
               date: h.date,
               fee: h.splits?.deliveryFee || 30
           })));
+          setSettlements(settledData);
         } catch (err) { console.error(err); }
     };
 
@@ -224,8 +210,6 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
       );
   }
 
-  const mapStores = activeOrder ? [] : availableOrders.map(o => ({ ...o, lat: o.storeLocation?.lat, lng: o.storeLocation?.lng, type: 'general' } as any));
-
   return (
     <div className="fixed inset-0 bg-slate-50 flex flex-col font-sans overflow-hidden">
       <header className="bg-white/90 backdrop-blur-xl px-5 py-4 sticky top-0 z-[100] flex justify-between items-center border-b border-slate-100 shadow-sm">
@@ -239,7 +223,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
           {activeTab === 'TASKS' && (
               <div className="p-4 space-y-4 animate-fade-in">
                   <div className="h-64 rounded-[2.5rem] overflow-hidden shadow-md border-4 border-white relative isolate bg-slate-200">
-                      <MapVisualizer stores={mapStores} userLat={currentLocation?.lat || null} userLng={currentLocation?.lng || null} selectedStore={null} onSelectStore={() => {}} mode="DELIVERY" className="h-full rounded-none" forcedCenter={currentLocation} />
+                      <MapVisualizer stores={availableOrders.map(o => ({ ...o, lat: o.storeLocation?.lat, lng: o.storeLocation?.lng, type: 'general' } as any))} userLat={currentLocation?.lat || null} userLng={currentLocation?.lng || null} selectedStore={null} onSelectStore={() => {}} mode="DELIVERY" className="h-full rounded-none" forcedCenter={currentLocation} />
                   </div>
 
                   <div className={`bg-white p-5 rounded-[2.5rem] border border-white shadow-sm flex items-center justify-between ${isOnline ? 'ring-2 ring-emerald-500/10' : 'opacity-60'}`}>
@@ -291,24 +275,18 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                   <div className="space-y-4">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Mission History</h3>
                       <div className="space-y-3">
-                          {earningHistory.length === 0 ? (
-                              <div className="bg-white p-8 rounded-[2rem] text-center border border-slate-100">
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No history yet</p>
-                              </div>
-                          ) : (
-                              earningHistory.map((item) => (
-                                  <div key={item.id} className="bg-white p-4 rounded-[1.5rem] border border-white shadow-sm flex items-center justify-between animate-slide-up">
-                                      <div className="flex items-center gap-3">
-                                          <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-lg">🏁</div>
-                                          <div className="min-w-0 flex-1">
-                                              <p className="text-[11px] font-black text-slate-800 truncate">{safeStr(item.storeName)}</p>
-                                              <p className="text-[9px] font-bold text-slate-400">{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                                          </div>
+                          {earningHistory.map((item) => (
+                              <div key={item.id} className="bg-white p-4 rounded-[1.5rem] border border-white shadow-sm flex items-center justify-between animate-slide-up">
+                                  <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-lg">🏁</div>
+                                      <div className="min-w-0 flex-1">
+                                          <p className="text-[11px] font-black text-slate-800 truncate">{safeStr(item.storeName)}</p>
+                                          <p className="text-[9px] font-bold text-slate-400">{new Date(item.date).toLocaleDateString()}</p>
                                       </div>
-                                      <span className="text-xs font-black text-emerald-500 shrink-0">+₹{safeStr(item.fee)}</span>
                                   </div>
-                              ))
-                          )}
+                                  <span className="text-xs font-black text-emerald-500 shrink-0">+₹{safeStr(item.fee)}</span>
+                              </div>
+                          ))}
                       </div>
                   </div>
               </div>
@@ -322,30 +300,29 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                           <div key={s.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white relative overflow-hidden group hover:ring-2 hover:ring-emerald-500/20 transition-all animate-slide-up">
                               <div className="flex justify-between items-start mb-4">
                                   <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest">Verified Settlement</div>
-                                  <p className="text-[9px] font-bold text-slate-400">{new Date(s.date).toLocaleDateString()}</p>
+                                  <p className="text-[9px] font-bold text-slate-400">{new Date(s.created_at).toLocaleDateString()}</p>
                               </div>
                               <div className="flex justify-between items-end">
                                   <div>
                                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Source Admin UPI</p>
-                                      <p className="text-xs font-black text-slate-800">{safeStr(s.adminUpi)}</p>
+                                      <p className="text-xs font-black text-slate-800">{safeStr(s.admin_upi)}</p>
                                   </div>
                                   <div className="text-right">
                                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Amount Recvd</p>
-                                      <p className="text-3xl font-black text-emerald-500 tracking-tighter">₹{safeStr(s.amount)}</p>
+                                      <p className="text-3xl font-black text-emerald-500 tracking-tighter">₹{safeStr(s.delivery_fee)}</p>
                                   </div>
                               </div>
                               <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center">
                                   <div>
                                       <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Transaction ID</p>
-                                      <p className="text-[10px] font-mono text-slate-500 font-bold">{safeStr(s.txId)}</p>
+                                      <p className="text-[10px] font-mono text-slate-500 font-bold">{safeStr(s.tx_id)}</p>
                                   </div>
-                                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">📋</div>
                               </div>
                           </div>
                       ))}
                       {settlements.length === 0 && (
                           <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest bg-white rounded-[3rem] border border-slate-100">
-                             No settled payouts yet
+                             No settled payouts found
                           </div>
                       )}
                   </div>
@@ -381,16 +358,11 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                       <h3 className="text-xl font-black text-slate-900 tracking-tight mb-8 truncate w-full text-center">{safeStr(user.name, 'Partner')}</h3>
                       
                       <div className="w-full space-y-3 text-left">
-                          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                             <span className="text-[10px] font-black text-slate-400 uppercase">Vehicle Type</span>
-                             <span className="text-xs font-black text-slate-800">{user.vehicleType === 'ev_slow' ? 'Eco EV' : 'Petrol / Fast EV'}</span>
-                          </div>
-
                           <div className="space-y-1">
                               <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Email</label>
                               <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                  {isEditingProfile ? (
-                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full" value={profileForm.email} onChange={e => setProfileForm({...profileForm, email: e.target.value})} />
+                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full border-b border-emerald-500" value={profileForm.email} onChange={e => setProfileForm({...profileForm, email: e.target.value})} />
                                  ) : (
                                      <span className="text-xs font-black text-slate-800 truncate">{safeStr(user.email, 'Not provided')}</span>
                                  )}
@@ -401,7 +373,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                               <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Phone</label>
                               <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                  {isEditingProfile ? (
-                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} />
+                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full border-b border-emerald-500" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} />
                                  ) : (
                                      <span className="text-xs font-black text-slate-800">{safeStr(user.phone, 'Not linked')}</span>
                                  )}
@@ -412,7 +384,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                               <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Vehicle #</label>
                               <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                  {isEditingProfile ? (
-                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full" value={profileForm.vehicleModel} onChange={e => setProfileForm({...profileForm, vehicleModel: e.target.value})} />
+                                     <input className="bg-transparent text-xs font-black text-slate-800 outline-none w-full border-b border-emerald-500" value={profileForm.vehicleModel} onChange={e => setProfileForm({...profileForm, vehicleModel: e.target.value})} />
                                  ) : (
                                      <span className="text-xs font-black text-slate-800">{safeStr(user.vehicleModel || vehicleData.model, 'Pending')}</span>
                                  )}
@@ -420,7 +392,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                           </div>
 
                           <div className="space-y-1 opacity-70">
-                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">License # (Fixed)</label>
+                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">License # (Locked)</label>
                               <div className="flex justify-between items-center bg-slate-100 p-4 rounded-2xl border border-slate-200">
                                  <span className="text-xs font-black text-slate-500">{safeStr(user.licenseNumber || vehicleData.license, 'Pending')}</span>
                                  <span className="text-[8px] font-black text-slate-400 uppercase">Verified</span>
@@ -430,7 +402,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
 
                       <div className="w-full flex flex-col gap-3 mt-10">
                         {isEditingProfile ? (
-                            <button onClick={saveProfileChanges} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-100 active:scale-95 transition-all">Save Profile</button>
+                            <button onClick={saveProfileChanges} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-100 active:scale-95 transition-all">Save Changes</button>
                         ) : (
                             <button onClick={() => {
                                 setProfileForm({

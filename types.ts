@@ -84,6 +84,8 @@ export interface UserState {
   vehicleType?: 'ev_slow' | 'petrol'; // ev_slow = < 20kmph EV
   vehicleModel?: string; 
   licenseNumber?: string;
+  // upiId is used in userService.ts for partner and profile management
+  upiId?: string;
 }
 
 export interface LocationResult {

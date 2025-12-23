@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { registerUser, loginUser } from '../services/userService';
 import { UserState } from '../types';
@@ -19,7 +20,7 @@ export const Auth: React.FC<AuthProps> = ({
   onAdminDemoLogin 
 }) => {
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'VERIFY'>('LOGIN');
-  const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', password: '', otp: '' });
+  const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', upiId: '', password: '', otp: '' });
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -45,7 +46,7 @@ export const Auth: React.FC<AuthProps> = ({
       setLoading(true);
       setStatusMsg('Creating Profile...');
       try {
-          const user = await registerUser(formData.email, formData.password, formData.fullName, formData.phone);
+          const user = await registerUser(formData.email, formData.password, formData.fullName, formData.phone, formData.upiId);
           onLoginSuccess(user);
       } catch (err: any) {
           const msg = err?.message || (typeof err === 'string' ? err : 'Registration failed');
@@ -79,6 +80,7 @@ export const Auth: React.FC<AuthProps> = ({
                       <>
                         <input type="text" placeholder="Full Name" value={formData.fullName} onChange={(e) => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none border border-transparent focus:border-emerald-500 shadow-inner" required />
                         <input type="tel" placeholder="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none border border-transparent focus:border-emerald-500 shadow-inner" required />
+                        <input type="text" placeholder="UPI ID (for receiving payouts)" value={formData.upiId} onChange={(e) => setFormData({...formData, upiId: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none border border-transparent focus:border-emerald-500 shadow-inner" required />
                       </>
                     )}
                     <input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold text-slate-800 outline-none border border-transparent focus:border-emerald-500 shadow-inner" required />

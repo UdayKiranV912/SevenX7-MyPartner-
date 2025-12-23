@@ -89,6 +89,35 @@ export const getPartnerOrderHistory = async (partnerId: string): Promise<Order[]
 };
 
 /**
+ * Fetch payout settlements from Admin
+ */
+export const getSettlements = async (partnerId: string): Promise<any[]> => {
+    try {
+        // First get partner UPI
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('upi_id')
+            .eq('id', partnerId)
+            .single();
+
+        if (!profile?.upi_id) return [];
+
+        const { data, error } = await supabase
+            .from('payment_splits')
+            .select('*')
+            .eq('driver_upi', profile.upi_id)
+            .eq('is_settled', true)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        console.error("getSettlements error", e);
+        return [];
+    }
+};
+
+/**
  * Assign a delivery partner to an order.
  */
 export const acceptOrder = async (orderId: string, partnerId: string) => {

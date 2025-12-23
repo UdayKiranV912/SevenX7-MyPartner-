@@ -7,7 +7,8 @@ import { MOCK_STORES } from "../constants";
 const CLOUDFLARE_WORKER_URL = ''; // e.g., 'https://your-worker.your-name.workers.dev'
 
 // Initialize SDK according to guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Always use process.env.API_KEY directly.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper to assign inventory based on type
 const assignInventory = (type: Store['type']): string[] => {
@@ -217,7 +218,7 @@ export const generateProductDetails = async (productName: string): Promise<Parti
         }
     });
 
-    // Accessing text as a property
+    // Accessing text as a property directly
     const text = response.text;
     if (text) {
         return JSON.parse(text);
