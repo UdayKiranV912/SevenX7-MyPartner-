@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Product } from '../types';
 import { generateProductDetails } from '../services/geminiService';
@@ -9,6 +8,24 @@ interface ProductDetailsModalProps {
   onAdd: (product: Product, quantity: number, brand?: string, price?: number) => void;
   onUpdateDetails?: (id: string, details: Partial<Product>) => void;
 }
+
+/**
+ * Robust helper to prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            return fallback;
+        } catch(e) { return fallback; }
+    }
+    return fallback;
+};
 
 export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onClose, onAdd, onUpdateDetails }) => {
   const [details, setDetails] = useState<Partial<Product>>({
@@ -26,11 +43,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ produc
   const currentPrice = brands[selectedBrandIndex].price;
   const currentBrandName = brands[selectedBrandIndex].name;
   
-  // MRP Logic (If brand overrides price, we assume MRP scales similarly or use product MRP if no brands)
-  // For simplicity in this hybrid model: if brands exist, we focus on brand price. 
-  // If no brands, we use product.mrp.
   const displayMrp = product.brands && product.brands.length > 0 
-      ? currentPrice * 1.2 // Mock MRP for brands logic as data structure for brand-specific MRP is complex for this MVP
+      ? currentPrice * 1.2 
       : (product.mrp || product.price);
 
   const discount = displayMrp > currentPrice 
@@ -82,7 +96,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ produc
             )}
           </div>
 
-          <h2 className="text-4xl font-black text-slate-900 text-center tracking-tight leading-none mb-2">{product.name}</h2>
+          <h2 className="text-4xl font-black text-slate-900 text-center tracking-tight leading-none mb-2">{safeStr(product.name)}</h2>
           
           <div className="flex items-baseline gap-3">
               {discount > 0 && (
@@ -112,7 +126,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ produc
                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                        }`}
                     >
-                       {brand.name}
+                       {safeStr(brand.name)}
                        <span className={`ml-1 opacity-70 ${selectedBrandIndex === idx ? 'text-slate-300' : 'text-slate-400'}`}>₹{brand.price}</span>
                     </button>
                  ))}
@@ -130,17 +144,17 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ produc
            ) : (
               <div className="animate-fade-in space-y-6">
                   <p className="text-center text-slate-600 font-medium leading-relaxed px-4 text-lg">
-                     {details.description}
+                     {safeStr(details.description)}
                   </p>
                   
                   <div className="grid grid-cols-2 gap-3">
                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100">
                           <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wide">Ingredients</span>
-                          <span className="text-sm font-bold text-slate-800 leading-snug block">{details.ingredients}</span>
+                          <span className="text-sm font-bold text-slate-800 leading-snug block">{safeStr(details.ingredients)}</span>
                       </div>
                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100">
                           <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wide">Nutrition</span>
-                          <span className="text-sm font-bold text-slate-800 leading-snug block">{details.nutrition}</span>
+                          <span className="text-sm font-bold text-slate-800 leading-snug block">{safeStr(details.nutrition)}</span>
                       </div>
                   </div>
               </div>
