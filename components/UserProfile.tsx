@@ -12,16 +12,32 @@ interface UserProfileProps {
   onLogout: () => void;
 }
 
+/**
+ * Hardened safeStr helper to strictly prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        if (val.message && typeof val.message === 'string') return val.message;
+        if (val.name && typeof val.name === 'string') return val.name;
+        return fallback;
+    }
+    return fallback;
+};
+
 export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, onLogout }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   
   // Address & Map State
   const [formData, setFormData] = useState({
-    name: user.name || '',
-    email: user.email || '',
-    phone: user.phone || '',
-    address: user.address || ''
+    name: safeStr(user.name),
+    email: safeStr(user.email),
+    phone: safeStr(user.phone),
+    address: safeStr(user.address)
   });
   
   // Map State for Editing
@@ -70,7 +86,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
       try {
           const address = await reverseGeocode(lat, lng);
           if (address) {
-              setFormData(prev => ({ ...prev, address }));
+              setFormData(prev => ({ ...prev, address: safeStr(address) }));
           }
       } catch (error) {
           console.warn("Geocode failed", error);
@@ -89,7 +105,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
               // Optional: Auto-fill address if empty
               if (!formData.address) {
                   const addr = await reverseGeocode(loc.lat, loc.lng);
-                  if(addr) setFormData(prev => ({...prev, address: addr}));
+                  if(addr) setFormData(prev => ({...prev, address: safeStr(addr)}));
               }
           } catch (e) {
               // Default to Bangalore if nothing
@@ -107,7 +123,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-brand-light to-white -z-0"></div>
         
         <div className="w-28 h-28 bg-slate-900 rounded-full flex items-center justify-center text-4xl mb-4 border-[6px] border-white shadow-xl relative z-10 text-white transition-transform group-hover:scale-105">
-          {user.name ? user.name.charAt(0).toUpperCase() : '👤'}
+          {safeStr(user.name, 'P').charAt(0).toUpperCase()}
         </div>
         
         {isEditingProfile ? (
@@ -143,7 +159,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
         ) : (
              <div className="z-10 flex flex-col items-center gap-1">
                  <div className="flex items-center gap-2">
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">{user.name || 'Guest User'}</h3>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">{safeStr(user.name, 'Guest User')}</h3>
                     <button onClick={() => setIsEditingProfile(true)} className="text-slate-400 hover:text-brand-DEFAULT transition-colors bg-white p-1 rounded-full shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -151,8 +167,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
                     </button>
                  </div>
                  <div className="flex flex-col items-center">
-                    <p className="text-sm font-bold text-slate-500">{user.email}</p>
-                    <p className="text-sm font-medium text-slate-400">{user.phone}</p>
+                    <p className="text-sm font-bold text-slate-500">{safeStr(user.email)}</p>
+                    <p className="text-sm font-medium text-slate-400">{safeStr(user.phone)}</p>
                  </div>
              </div>
         )}
@@ -195,7 +211,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
                               value={formData.address}
                               onChange={(val) => setFormData({...formData, address: val})}
                               onSelect={(lat, lng, addr) => {
-                                  setFormData({...formData, address: addr});
+                                  setFormData({...formData, address: safeStr(addr)});
                                   setMapCenter({ lat, lng });
                               }}
                               placeholder="House No, Street, Landmark..."
@@ -231,7 +247,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
                                 <span className="text-slate-300 text-xs bg-white px-2 py-0.5 rounded-full border border-slate-100 shadow-sm group-hover:text-brand-DEFAULT">Edit</span>
                             </div>
                             <p className="text-sm font-medium text-slate-500 leading-relaxed line-clamp-2">
-                                {user.address ? user.address : <span className="text-slate-400 italic">No address set. Tap to add.</span>}
+                                {user.address ? safeStr(user.address) : <span className="text-slate-400 italic">No address set. Tap to add.</span>}
                             </p>
                             {user.location && (
                                 <p className="text-[10px] text-slate-300 font-mono mt-1">

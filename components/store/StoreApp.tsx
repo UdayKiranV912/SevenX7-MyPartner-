@@ -16,6 +16,22 @@ interface StoreAppProps {
   onLogout: () => void;
 }
 
+/**
+ * Hardened safeStr helper to strictly prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        if (val.message && typeof val.message === 'string') return val.message;
+        if (val.name && typeof val.name === 'string') return val.name;
+        return fallback;
+    }
+    return fallback;
+};
+
 export const StoreApp: React.FC<StoreAppProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'INVENTORY' | 'ORDERS'>('DASHBOARD');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -114,7 +130,7 @@ export const StoreApp: React.FC<StoreAppProps> = ({ user, onLogout }) => {
         <div>
           <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <span className="bg-slate-900 text-white w-7 h-7 rounded-lg flex items-center justify-center text-[10px]">🏪</span>
-            {myStore?.name || 'My Store'}
+            {safeStr(myStore?.name, 'My Store')}
           </h1>
         </div>
         <button onClick={() => setShowProfileModal(true)} className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg active:scale-95 transition-all shadow-sm">👤</button>
@@ -151,7 +167,7 @@ export const StoreApp: React.FC<StoreAppProps> = ({ user, onLogout }) => {
                     <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-2xl border border-slate-100 group-hover:rotate-3 transition-transform">{item.emoji}</div>
                     <div className="flex-1">
                       <div className="flex justify-between mb-1">
-                        <span className="text-sm font-black text-slate-800">{item.name}</span>
+                        <span className="text-sm font-black text-slate-800">{safeStr(item.name)}</span>
                         <span className="text-xs font-black text-emerald-500">{Math.round((item.stock/50)*100)}% Stock</span>
                       </div>
                       <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
@@ -186,13 +202,13 @@ export const StoreApp: React.FC<StoreAppProps> = ({ user, onLogout }) => {
                 <div key={order.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white space-y-5 animate-slide-up hover:shadow-card-hover transition-all">
                    <div className="flex justify-between items-start">
                      <div>
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Order #{order.id.slice(-4)}</p>
-                       <h3 className="text-lg font-black text-slate-800">{order.customerName}</h3>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Order #{safeStr(order.id.slice(-4))}</p>
+                       <h3 className="text-lg font-black text-slate-800">{safeStr(order.customerName)}</h3>
                      </div>
-                     <span className={`px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest ${order.status === 'Placed' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>{order.status}</span>
+                     <span className={`px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest ${order.status === 'Placed' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>{safeStr(order.status)}</span>
                    </div>
                    <div className="bg-slate-50 p-4 rounded-2xl space-y-2 border border-slate-100">
-                     {order.items.map((it, idx) => <div key={idx} className="flex justify-between text-xs font-bold"><span className="text-slate-500">{it.quantity}x {it.name}</span><span className="text-slate-800">₹{it.price * it.quantity}</span></div>)}
+                     {order.items.map((it, idx) => <div key={idx} className="flex justify-between text-xs font-bold"><span className="text-slate-500">{it.quantity}x {safeStr(it.name)}</span><span className="text-slate-800">₹{it.price * it.quantity}</span></div>)}
                      <div className="pt-2 border-t border-slate-200 flex justify-between font-black text-sm text-slate-900"><span>Total</span><span>₹{order.total}</span></div>
                    </div>
                    {order.status === 'Placed' ? (
@@ -219,7 +235,7 @@ export const StoreApp: React.FC<StoreAppProps> = ({ user, onLogout }) => {
                  <div key={item.id} className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-white flex items-center gap-5 transition-all hover:shadow-md">
                    <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center text-3xl border border-slate-100 shrink-0">{item.emoji}</div>
                    <div className="flex-1 min-w-0">
-                     <h4 className="font-black text-slate-800 text-base truncate">{item.name}</h4>
+                     <h4 className="font-black text-slate-800 text-base truncate">{safeStr(item.name)}</h4>
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">₹{item.storePrice} • {item.stock} left</p>
                    </div>
                    <button onClick={() => handleInventoryUpdate(item, item.storePrice, !item.inStock, item.stock)} className={`w-14 h-8 rounded-full relative transition-all duration-300 ${item.inStock ? 'bg-emerald-500' : 'bg-slate-200'}`}>

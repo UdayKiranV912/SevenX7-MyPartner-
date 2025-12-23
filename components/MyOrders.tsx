@@ -10,6 +10,22 @@ interface MyOrdersProps {
   userId?: string;
 }
 
+/**
+ * Hardened safeStr helper to strictly prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        if (val.message && typeof val.message === 'string') return val.message;
+        if (val.name && typeof val.name === 'string') return val.name;
+        return fallback;
+    }
+    return fallback;
+};
+
 export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, userId }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -126,13 +142,13 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
         const isCancelled = order.status === 'Cancelled';
         const isPickup = order.mode === 'PICKUP';
         const { steps, currentIndex, progress, getLabel, getIcon } = getStatusInfo(order.status, order.mode);
-        const mapStore: Store = { id: `s-${order.id}`, name: order.storeName, lat: order.storeLocation?.lat || 0, lng: order.storeLocation?.lng || 0, address: '', rating: 0, distance: '', isOpen: true, type: 'general', availableProductIds: [] };
+        const mapStore: Store = { id: `s-${order.id}`, name: safeStr(order.storeName), lat: order.storeLocation?.lat || 0, lng: order.storeLocation?.lng || 0, address: '', rating: 0, distance: '', isOpen: true, type: 'general', availableProductIds: [] };
         const driverPos = getDriverPos(order);
         const routeTargetPoint = { lat: order.userLocation?.lat || 0, lng: order.userLocation?.lng || 0 };
 
         return (
           <div key={order.id} className={`bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 transition-all cursor-pointer ${isExpanded ? 'ring-2 ring-slate-100 bg-slate-50/20' : ''}`} style={{ animationDelay: `${idx * 100}ms` }} onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}>
-            <div className="flex justify-between items-start mb-6"><div className="flex-1 min-w-0 pr-4"><h3 className="font-black text-slate-900 text-lg truncate">{order.storeName}</h3><div className="flex items-center gap-2 mt-1.5"><span className="text-[10px] font-bold text-slate-400 uppercase">{new Date(order.date).toLocaleDateString()}</span><span className="text-[10px] font-black text-slate-800 tracking-wide">₹{order.total}</span></div></div><div className={`px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{order.status}</div></div>
+            <div className="flex justify-between items-start mb-6"><div className="flex-1 min-w-0 pr-4"><h3 className="font-black text-slate-900 text-lg truncate">{safeStr(order.storeName)}</h3><div className="flex items-center gap-2 mt-1.5"><span className="text-[10px] font-bold text-slate-400 uppercase">{new Date(order.date).toLocaleDateString()}</span><span className="text-[10px] font-black text-slate-800 tracking-wide">₹{order.total}</span></div></div><div className={`px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{safeStr(order.status)}</div></div>
             {!isCancelled && (
                  <div className="mb-8 px-4 relative">
                     <div className="absolute top-[14px] left-10 right-10 h-0.5 bg-slate-100 rounded-full -z-0"></div>
@@ -166,7 +182,7 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                         </div>
                     )}
                     <div className="space-y-3">{order.items.map((item, i) => (
-                        <div key={i} className="flex justify-between items-center bg-slate-50/50 p-4 rounded-2xl border border-slate-100"><div className="flex items-center gap-4"><div className="text-2xl bg-white w-12 h-12 flex items-center justify-center rounded-xl shadow-sm border border-slate-100">{item.emoji}</div><div><div className="font-bold text-slate-800 text-sm">{item.name}</div><div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{item.quantity} × ₹{item.price}</div></div></div><div className="font-black text-slate-900 text-sm">₹{item.price * item.quantity}</div></div>
+                        <div key={i} className="flex justify-between items-center bg-slate-50/50 p-4 rounded-2xl border border-slate-100"><div className="flex items-center gap-4"><div className="text-2xl bg-white w-12 h-12 flex items-center justify-center rounded-xl shadow-sm border border-slate-100">{item.emoji}</div><div><div className="font-bold text-slate-800 text-sm">{safeStr(item.name)}</div><div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{item.quantity} × ₹{item.price}</div></div></div><div className="font-black text-slate-900 text-sm">₹{item.price * item.quantity}</div></div>
                     ))}</div>
                 </div>
             )}

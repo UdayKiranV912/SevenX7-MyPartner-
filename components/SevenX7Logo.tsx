@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface SevenX7LogoProps {
@@ -10,11 +11,11 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick, 
   
   const getTextSize = () => {
     switch(size) {
-      case 'xs': return 'text-[10px]';
-      case 'small': return 'text-xs';
-      case 'medium': return 'text-xl';
-      case 'large': return 'text-5xl';
-      default: return 'text-xs';
+      case 'xs': return 'text-[14px]';
+      case 'small': return 'text-[18px]';
+      case 'medium': return 'text-2xl';
+      case 'large': return 'text-6xl';
+      default: return 'text-[18px]';
     }
   };
 
@@ -23,49 +24,31 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick, 
   const isXS = size === 'xs';
   const textSizeClass = getTextSize();
   
-  const xSizeClass = isLarge ? 'text-7xl' : isMedium ? 'text-4xl' : isXS ? 'text-sm' : 'text-2xl';
+  const xSizeClass = isLarge ? 'text-8xl' : isMedium ? 'text-5xl' : isXS ? 'text-xl' : 'text-3xl';
   
   const getOverlapMargin = () => {
     switch(size) {
-      case 'large': return 'mx-[-16px]';
-      case 'medium': return 'mx-[-8px]';
-      case 'xs': return 'mx-[-2px]';
-      default: return 'mx-[-5px]';
+      case 'large': return 'mx-[-18px]';
+      case 'medium': return 'mx-[-10px]';
+      case 'xs': return 'mx-[-4px]';
+      default: return 'mx-[-6px]';
     }
   };
 
   const marginClass = getOverlapMargin();
 
   return (
-    <div className="flex flex-col items-center select-none relative w-fit">
-      <div className="group flex items-center justify-center font-display leading-none h-fit">
-        
-        {/* LEFT BLOCK: SEVEN + INNOVATIONS */}
-        <div className="flex flex-col items-start leading-none">
-            <span 
-              className={`${textSizeClass} text-black font-black uppercase leading-none z-0`}
-              style={{ letterSpacing: '-0.02em' }}
-            >
-              Seven
-            </span>
-            
-            {!hideBrandName && (
-               <span 
-                className="font-black uppercase tracking-[0.3em] text-slate-400 leading-none whitespace-nowrap"
-                style={{ 
-                  fontSize: isLarge ? '8px' : isMedium ? '5.5px' : isXS ? '3px' : '4px',
-                  marginTop: isLarge ? '2px' : '1px',
-                  opacity: 0.8
-                }}
-              >
-                Innovations
-              </span>
-            )}
-        </div>
+    <div className="flex flex-col items-center select-none relative group animate-fade-in">
+      {/* Main SEVEN X 7 Row */}
+      <div className="flex items-center justify-center font-display leading-none h-fit">
+        <span 
+          className={`${textSizeClass} text-black font-black uppercase leading-none z-0 tracking-tighter`}
+        >
+          Seven
+        </span>
 
-        {/* CENTER: X */}
         <div 
-          className={`relative flex items-center justify-center ${xSizeClass} leading-none ${marginClass} z-10 transition-transform group-hover:scale-110 duration-300`} 
+          className={`relative flex items-center justify-center ${xSizeClass} leading-none ${marginClass} z-10 transition-transform group-hover:scale-110 duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]`} 
           onClick={onNewsClick}
           style={{ cursor: onNewsClick ? 'pointer' : 'default' }}
         >
@@ -73,7 +56,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick, 
               className="text-black font-black inline-block leading-none" 
               style={{ 
                 fontFamily: 'Inter, sans-serif', 
-                fontWeight: 1000,
+                fontWeight: 900,
                 fontSize: '1.2em',
                 filter: 'drop-shadow(1px 0 0 white) drop-shadow(-1px 0 0 white) drop-shadow(0 1px 0 white) drop-shadow(0 -1px 0 white)'
               }}
@@ -82,26 +65,41 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', onNewsClick, 
            </span>
         </div>
 
-        {/* RIGHT BLOCK: 7 */}
         <span 
-          className={`${textSizeClass} text-black font-black uppercase leading-none z-0`}
-          style={{ letterSpacing: '-0.02em' }}
+          className={`${textSizeClass} text-black font-black uppercase leading-none z-0 tracking-tighter`}
         >
           7
         </span>
       </div>
       
+      {/* Subtitles: Innovations & My partner Grocesphere */}
       {!hideBrandName && (
-        <span 
-          className={`font-black uppercase tracking-[0.08em] text-slate-900 leading-none text-center whitespace-nowrap ${
-            isXS ? 'text-[5px] mt-3' : 
-            size === 'small' ? 'text-[7px] mt-4' : 
-            isMedium ? 'text-[10px] mt-5' : 
-            'text-[14px] mt-7'
-          }`}
-        >
-          My Partner Grocesphere
-        </span>
+        <div className="flex flex-col items-center w-full mt-1.5">
+          {/* Innovations Subtitle - High Spacing Tech Style */}
+          <span 
+            className="font-black uppercase tracking-[0.55em] text-emerald-500 leading-none whitespace-nowrap text-center"
+            style={{ 
+              fontSize: isLarge ? '14px' : isMedium ? '10px' : isXS ? '6px' : '8px',
+              opacity: 0.95,
+              marginBottom: isXS ? '4px' : '6px',
+              marginLeft: '0.55em' // Offset for the last letter's tracking
+            }}
+          >
+            Innovations
+          </span>
+          
+          {/* Main Brand Name */}
+          <span 
+            className={`font-black uppercase tracking-[0.18em] text-slate-900 leading-none transition-all duration-300 group-hover:text-emerald-600 text-center ${
+              isXS ? 'text-[9px] mt-1' : 
+              size === 'small' ? 'text-[13px] mt-2' : 
+              isMedium ? 'text-[18px] mt-3' : 
+              'text-[26px] mt-5'
+            }`}
+          >
+            My partner Grocesphere
+          </span>
+        </div>
       )}
     </div>
   );

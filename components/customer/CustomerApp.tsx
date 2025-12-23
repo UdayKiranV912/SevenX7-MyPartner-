@@ -20,6 +20,22 @@ interface CustomerAppProps {
   onLogout: () => void;
 }
 
+/**
+ * Hardened safeStr helper to strictly prevent [object Object] rendering.
+ */
+const safeStr = (val: any, fallback: string = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
+    if (typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        if (val.message && typeof val.message === 'string') return val.message;
+        if (val.name && typeof val.name === 'string') return val.name;
+        return fallback;
+    }
+    return fallback;
+};
+
 export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
   const [activeView, setActiveView] = useState<'HOME' | 'STORE' | 'ORDERS' | 'PROFILE' | 'CART'>('HOME');
   const [stores, setStores] = useState<Store[]>([]);
@@ -28,7 +44,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filterType, setFilterType] = useState<'ALL' | Store['type']>('ALL');
-  const [currentAddress, setCurrentAddress] = useState<string>(user.address || 'Locating...');
+  const [currentAddress, setCurrentAddress] = useState<string>(safeStr(user.address, 'Locating...'));
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(user.location);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showPayment, setShowPayment] = useState(false);
@@ -40,7 +56,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
         const loc = await getBrowserLocation();
         setCurrentLocation({ lat: loc.lat, lng: loc.lng });
         const address = await reverseGeocode(loc.lat, loc.lng);
-        if (address) setCurrentAddress(address);
+        if (address) setCurrentAddress(safeStr(address));
       } catch (e) {
         if (!user.location) { setCurrentLocation({ lat: 12.9716, lng: 77.5946 }); setCurrentAddress("Bengaluru, India"); }
       }
@@ -109,7 +125,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
     if (!pendingOrderDetails) return;
     const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const newOrder: Order = {
-      id: `ord-${Date.now()}`, date: new Date().toISOString(), items: cart, total: totalAmount, status: 'Pending', paymentStatus: 'PAID', mode: 'DELIVERY', deliveryType: pendingOrderDetails.deliveryType, scheduledTime: pendingOrderDetails.scheduledTime, deliveryAddress: currentAddress, storeName: cart[0].storeName, storeLocation: selectedStore ? { lat: selectedStore.lat, lng: selectedStore.lng } : undefined, userLocation: currentLocation || undefined, splits: pendingOrderDetails.splits, customerName: user.name, customerPhone: user.phone
+      id: `ord-${Date.now()}`, date: new Date().toISOString(), items: cart, total: totalAmount, status: 'Pending', paymentStatus: 'PAID', mode: 'DELIVERY', deliveryType: pendingOrderDetails.deliveryType, scheduledTime: pendingOrderDetails.scheduledTime, deliveryAddress: currentAddress, storeName: safeStr(cart[0].storeName), storeLocation: selectedStore ? { lat: selectedStore.lat, lng: selectedStore.lng } : undefined, userLocation: currentLocation || undefined, splits: pendingOrderDetails.splits, customerName: user.name, customerPhone: user.phone
     };
     if (user.id && !user.id.includes('demo')) await saveOrder(user.id, newOrder);
     setCart([]); setShowPayment(false); setActiveView('ORDERS');
@@ -122,7 +138,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
         <div className="flex items-center gap-2">
           <div className="bg-slate-50 border border-slate-100 rounded-full px-3 py-1 flex items-center gap-2 max-w-[100px] cursor-pointer" onClick={() => setActiveView('PROFILE')}>
             <span className="text-emerald-500 text-[6px] animate-pulse">●</span>
-            <span className="text-[7px] font-black text-slate-700 truncate uppercase tracking-tighter">{currentAddress}</span>
+            <span className="text-[7px] font-black text-slate-700 truncate uppercase tracking-tighter">{safeStr(currentAddress)}</span>
           </div>
           <button onClick={() => setActiveView('CART')} className="relative w-8 h-8 bg-slate-900 rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md">
             <span className="text-xs">🛒</span>
@@ -151,8 +167,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
                     {store.type === 'produce' ? '🥦' : store.type === 'dairy' ? '🥛' : '🏪'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-black text-slate-800 text-sm truncate">{store.name}</h3>
-                    <p className="text-[9px] font-bold text-slate-400">{store.distance} • ⭐ {store.rating?.toFixed(1) || '4.5'}</p>
+                    <h3 className="font-black text-slate-800 text-sm truncate">{safeStr(store.name)}</h3>
+                    <p className="text-[9px] font-bold text-slate-400">{safeStr(store.distance)} • ⭐ {store.rating?.toFixed(1) || '4.5'}</p>
                   </div>
                 </div>
               ))}
@@ -164,7 +180,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
           <div className="animate-slide-up min-h-full">
             <div className="bg-white p-6 pb-4 rounded-b-[2.5rem] shadow-sm mb-4">
                 <button onClick={() => setActiveView('HOME')} className="mb-2 text-emerald-500 font-black text-[8px] uppercase tracking-widest">← Back</button>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{selectedStore.name}</h1>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{safeStr(selectedStore.name)}</h1>
             </div>
             <div className="p-4 pt-0">
               <div className="grid grid-cols-2 gap-2 pb-16">
