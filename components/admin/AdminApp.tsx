@@ -35,11 +35,6 @@ const safeStr = (val: any, fallback: string = ''): string => {
     return fallback;
 };
 
-const HQ_TRANSACTIONS = [
-    { id: 't1', user: 'Kumar R.', type: 'PAYOUT', amount: -450, status: 'Completed', date: '2023-10-24' },
-    { id: 't2', user: 'MK Ahmed', type: 'COLLECTION', amount: 4200, status: 'Pending', date: '2023-10-24' },
-];
-
 export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'STORES' | 'TASKS' | 'APPROV' | 'FINANCE' | 'PROFILE'>('DASHBOARD');
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
@@ -86,7 +81,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
           
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center z-10 pointer-events-none">
               <span className="text-[10px] font-black text-white uppercase tracking-[0.15em] truncate max-w-[140px]">
-                {safeStr(user.name, 'Admin')}
+                {safeStr(user?.name, 'Admin')}
               </span>
           </div>
 
@@ -95,7 +90,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
             )}
             <button onClick={() => setActiveTab('PROFILE')} className="w-8 h-8 rounded-xl bg-emerald-500 text-slate-900 flex items-center justify-center text-[10px] font-black shadow-lg z-20">
-                {safeStr(user.name, 'A').charAt(0)}
+                {safeStr(user?.name, 'A').charAt(0)}
             </button>
           </div>
       </header>
@@ -106,7 +101,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
                 <div className="w-full text-center py-6 animate-fade-in">
                     <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-2 opacity-80">HQ Command Center</p>
                     <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter uppercase mb-1 drop-shadow-sm truncate px-4">
-                        {safeStr(user.name, 'Operator')}
+                        {safeStr(user?.name, 'Operator')}
                     </h2>
                     <div className="h-1 w-12 bg-emerald-500 mx-auto rounded-full mt-4"></div>
                 </div>
@@ -157,7 +152,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {pendingUsers.map(u => (
-                            <div key={safeStr(u.id)} className="bg-slate-950/80 p-6 rounded-[2.5rem] border border-white/5 shadow-2xl flex flex-col gap-4 animate-slide-up group">
+                            <div key={safeStr(u.id, Math.random().toString())} className="bg-slate-950/80 p-6 rounded-[2.5rem] border border-white/5 shadow-2xl flex flex-col gap-4 animate-slide-up group">
                                 <div className="flex justify-between items-start">
                                     <div className="flex gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-2xl">👤</div>
@@ -248,9 +243,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({ user, onLogout }) => {
         {activeTab === 'PROFILE' && (
             <div className="max-w-xs mx-auto text-center mt-10 animate-fade-in">
                 <div className="w-16 h-16 bg-emerald-500 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl font-black text-slate-900 shadow-xl">
-                    {safeStr(user.name, 'A').charAt(0)}
+                    {safeStr(user?.name, 'A').charAt(0)}
                 </div>
-                <h3 className="text-lg font-black truncate">{safeStr(user.name, 'Admin')}</h3>
+                <h3 className="text-lg font-black truncate">{safeStr(user?.name, 'Admin')}</h3>
                 <p className="text-[10px] text-slate-500 font-black uppercase mt-1 tracking-[0.2em]">Superuser</p>
                 <div className="mt-10 space-y-3">
                     <button onClick={onLogout} className="w-full py-4 bg-red-500/10 text-red-500 rounded-2xl font-black uppercase text-[9px] tracking-widest border border-red-500/20 active:scale-95 transition-all">Terminate Admin Session</button>
