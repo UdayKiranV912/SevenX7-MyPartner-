@@ -13,7 +13,8 @@ interface DeliveryAppProps {
 }
 
 /**
- * Robust helper to prevent [object Object] rendering.
+ * Ultra-robust helper to strictly prevent [object Object] rendering.
+ * Extracts nested name/message fields or returns a fallback.
  */
 const safeStr = (val: any, fallback: string = ''): string => {
     if (val === null || val === undefined) return fallback;
@@ -21,11 +22,14 @@ const safeStr = (val: any, fallback: string = ''): string => {
     if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
     if (typeof val === 'boolean') return String(val);
     if (typeof val === 'object') {
+        if (Array.isArray(val)) return fallback;
         try {
-            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.full_name && typeof val.full_name === 'string') return val.full_name;
             if (val.name && typeof val.name === 'string') return val.name;
-            return fallback;
-        } catch(e) { return fallback; }
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.display_name && typeof val.display_name === 'string') return val.display_name;
+        } catch(e) {}
+        return fallback; // Never return the object itself
     }
     return fallback;
 };
@@ -50,22 +54,18 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
   const [earningHistory, setEarningHistory] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<any[]>([]);
 
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-      email: safeStr(user.email),
-      phone: safeStr(user.phone),
-      vehicleModel: safeStr(user.vehicleModel)
-  });
-
-  const [calcInputs, setCalcInputs] = useState({ 
-    mileage: 45, petrolPrice: 102.5, distance: 30, gross: 450 
-  });
-
   const [showVehicleSetup, setShowVehicleSetup] = useState(!user.vehicleType);
   const [vehicleData, setVehicleData] = useState({ 
     type: user.vehicleType || 'ev_slow', 
     model: safeStr(user.vehicleModel), 
     license: safeStr(user.licenseNumber) 
+  });
+
+  const [calcInputs, setCalcInputs] = useState({
+      gross: 1000,
+      distance: 20,
+      mileage: 45,
+      petrolPrice: 100
   });
 
   useEffect(() => {
@@ -152,7 +152,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
 
   if (showVehicleSetup) {
       return (
-          <div className="fixed inset-0 z-[200] bg-slate-900 flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-[200] bg-slate-900 flex items-center justify-center p-6 text-white">
               <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl animate-scale-in text-center">
                   <SevenX7Logo size="medium" hideBrandName={true} />
                   <h2 className="text-xl font-black mt-6 mb-4 text-slate-900 tracking-tight uppercase">Fleet Registration</h2>
@@ -165,8 +165,8 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                           <option value="ev_slow">Slow EV (&lt;25kmph)</option>
                           <option value="petrol">Petrol / Fast EV</option>
                       </select>
-                      <input type="text" placeholder="Vehicle # (e.g. KA01E1234)" className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold border-0 shadow-inner" value={vehicleData.model} onChange={(e) => setVehicleData(v => ({ ...v, model: e.target.value }))} />
-                      <input type="text" placeholder="License #" className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold border-0 shadow-inner" value={vehicleData.license} onChange={(e) => setVehicleData(v => ({ ...v, license: e.target.value }))} />
+                      <input type="text" placeholder="Vehicle # (e.g. KA01E1234)" className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold border-0 shadow-inner text-slate-800" value={vehicleData.model} onChange={(e) => setVehicleData(v => ({ ...v, model: e.target.value }))} />
+                      <input type="text" placeholder="License #" className="w-full bg-slate-50 rounded-2xl p-4 text-sm font-bold border-0 shadow-inner text-slate-800" value={vehicleData.license} onChange={(e) => setVehicleData(v => ({ ...v, license: e.target.value }))} />
                       <button onClick={() => { if (user.id) updateUserProfile(user.id, { vehicle_type: vehicleData.type, vehicle_model: vehicleData.model, license_number: vehicleData.license } as any).catch(e => console.error(e)); setShowVehicleSetup(false); }} className="w-full bg-slate-900 text-white py-4.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg mt-4 active:scale-95 transition-all">Onboard Profile</button>
                   </div>
               </div>
@@ -179,9 +179,9 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
       <header className="bg-white/90 backdrop-blur-xl px-5 flex justify-between items-center border-b border-slate-100 shadow-sm h-12 sticky top-0 z-[100] relative">
           <SevenX7Logo size="xs" hideBrandName={true} />
           
-          {/* CENTERED PARTNER NAME */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
-              <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest truncate max-w-[140px]">
+          {/* CENTERED PARTNER NAME IN TOP HEADER */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+              <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.15em] truncate max-w-[140px]">
                 {safeStr(user.name, 'Partner')}
               </span>
           </div>
@@ -193,7 +193,16 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
 
       <main className="flex-1 relative overflow-y-auto hide-scrollbar flex flex-col pb-20 bg-[#F8FAFC]">
           {activeTab === 'TASKS' && (
-              <div className="p-4 space-y-4 animate-fade-in">
+              <div className="p-4 space-y-4 animate-fade-in flex flex-col">
+                  {/* HERO CENTERED IDENTIFIER */}
+                  <div className="w-full text-center py-6">
+                      <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-1 opacity-80">Command Control</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase truncate px-4">
+                          {safeStr(user.name, 'Partner')}
+                      </h2>
+                      <div className="h-0.5 w-8 bg-emerald-500 mx-auto rounded-full mt-3"></div>
+                  </div>
+
                   <div className="h-64 rounded-[2.5rem] overflow-hidden shadow-md border-4 border-white relative isolate bg-slate-200">
                       <MapVisualizer stores={availableOrders.map(o => ({ ...o, lat: o.storeLocation?.lat, lng: o.storeLocation?.lng, type: 'general' } as any))} userLat={currentLocation?.lat || null} userLng={currentLocation?.lng || null} selectedStore={null} onSelectStore={() => {}} mode="DELIVERY" className="h-full rounded-none" forcedCenter={currentLocation} />
                   </div>
@@ -212,7 +221,9 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                               <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-4">Live Assignment</p>
                               <h3 className="text-2xl font-black mb-4 tracking-tighter">₹{safeStr(activeOrder.splits?.deliveryFee, '30')}</h3>
                               <div className="space-y-3">
-                                  <p className="font-bold text-xs truncate opacity-80">{safeStr(activeOrder.storeName)} → {safeStr(activeOrder.deliveryAddress)}</p>
+                                  <p className="font-bold text-xs truncate opacity-80">
+                                    {safeStr(activeOrder.storeName)} → {safeStr(activeOrder.deliveryAddress)}
+                                  </p>
                               </div>
                               <button onClick={handleCompleteOrder} className="w-full mt-6 py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all">Finish Task</button>
                           </div>
@@ -223,7 +234,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                           </div>
                       ) : (
                           availableOrders.map(order => (
-                              <div key={order.id} className="bg-white p-5 rounded-[2.5rem] border border-white shadow-sm flex flex-col gap-4 animate-slide-up hover:shadow-md transition-all">
+                              <div key={safeStr(order.id)} className="bg-white p-5 rounded-[2.5rem] border border-white shadow-sm flex flex-col gap-4 animate-slide-up hover:shadow-md transition-all">
                                   <div className="flex justify-between items-center">
                                       <div className="flex gap-3 items-center"><div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-xl">📦</div><h4 className="font-black text-slate-800 text-sm truncate max-w-[120px]">{safeStr(order.storeName)}</h4></div>
                                       <div className="text-right"><p className="text-lg font-black text-slate-900 leading-none">₹{safeStr(order.splits?.deliveryFee, '30')}</p><p className="text-[7px] font-black text-slate-400 uppercase mt-1">Payout</p></div>
@@ -249,7 +260,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Mission Log</h3>
                       <div className="space-y-3">
                           {earningHistory.map((item) => (
-                              <div key={item.id} className="bg-white p-4 rounded-[1.5rem] border border-white shadow-sm flex items-center justify-between animate-slide-up">
+                              <div key={safeStr(item.id)} className="bg-white p-4 rounded-[1.5rem] border border-white shadow-sm flex items-center justify-between animate-slide-up">
                                   <div className="flex items-center gap-3 min-w-0">
                                       <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-lg">🏁</div>
                                       <div className="min-w-0 flex-1">
@@ -270,7 +281,7 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight px-2 uppercase">HQ Settlements</h2>
                   <div className="space-y-4">
                       {settlements.map((s) => (
-                          <div key={s.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white relative overflow-hidden group hover:ring-2 hover:ring-emerald-500/20 transition-all animate-slide-up">
+                          <div key={safeStr(s.id)} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white relative overflow-hidden group hover:ring-2 hover:ring-emerald-500/20 transition-all animate-slide-up">
                               <div className="flex justify-between items-start mb-4">
                                   <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest">Completed</div>
                                   <p className="text-[9px] font-bold text-slate-400">{new Date(s.created_at).toLocaleDateString()}</p>
@@ -311,12 +322,12 @@ export const DeliveryApp: React.FC<DeliveryAppProps> = ({ user, onLogout }) => {
                   </div>
                   <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-white space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Session Gross (₹)</label><input type="number" value={calcInputs.gross} onChange={e => setCalcInputs(prev => ({ ...prev, gross: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200" /></div>
-                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Dist (Km)</label><input type="number" value={calcInputs.distance} onChange={e => setCalcInputs(prev => ({ ...prev, distance: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200" /></div>
+                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Session Gross (₹)</label><input type="number" value={calcInputs.gross} onChange={e => setCalcInputs(prev => ({ ...prev, gross: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200 text-slate-800" /></div>
+                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Dist (Km)</label><input type="number" value={calcInputs.distance} onChange={e => setCalcInputs(prev => ({ ...prev, distance: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200 text-slate-800" /></div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Mileage (Km/L)</label><input type="number" value={calcInputs.mileage} onChange={e => setCalcInputs(prev => ({ ...prev, mileage: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200" /></div>
-                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Fuel Price (₹)</label><input type="number" value={calcInputs.petrolPrice} onChange={e => setCalcInputs(prev => ({ ...prev, petrolPrice: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200" /></div>
+                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Mileage (Km/L)</label><input type="number" value={calcInputs.mileage} onChange={e => setCalcInputs(prev => ({ ...prev, mileage: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200 text-slate-800" /></div>
+                        <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Fuel Price (₹)</label><input type="number" value={calcInputs.petrolPrice} onChange={e => setCalcInputs(prev => ({ ...prev, petrolPrice: Number(e.target.value) }))} className="w-full bg-slate-50 rounded-xl p-3.5 text-xs font-black outline-none border border-transparent focus:border-slate-200 text-slate-800" /></div>
                       </div>
                   </div>
               </div>

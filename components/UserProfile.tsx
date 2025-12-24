@@ -13,7 +13,7 @@ interface UserProfileProps {
 }
 
 /**
- * Hardened safeStr helper to strictly prevent [object Object] rendering.
+ * Enhanced robust helper to strictly prevent [object Object] rendering.
  */
 const safeStr = (val: any, fallback: string = ''): string => {
     if (val === null || val === undefined) return fallback;
@@ -21,8 +21,13 @@ const safeStr = (val: any, fallback: string = ''): string => {
     if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
     if (typeof val === 'boolean') return String(val);
     if (typeof val === 'object') {
-        if (val.message && typeof val.message === 'string') return val.message;
-        if (val.name && typeof val.name === 'string') return val.name;
+        if (Array.isArray(val)) return fallback;
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            if (val.full_name && typeof val.full_name === 'string') return val.full_name;
+            if (val.display_name && typeof val.display_name === 'string') return val.display_name;
+        } catch(e) {}
         return fallback;
     }
     return fallback;

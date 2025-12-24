@@ -17,7 +17,7 @@ interface StoreAppProps {
 }
 
 /**
- * Hardened safeStr helper to strictly prevent [object Object] rendering.
+ * Enhanced robust helper to strictly prevent [object Object] rendering.
  */
 const safeStr = (val: any, fallback: string = ''): string => {
     if (val === null || val === undefined) return fallback;
@@ -25,8 +25,13 @@ const safeStr = (val: any, fallback: string = ''): string => {
     if (typeof val === 'number') return isNaN(val) ? fallback : String(val);
     if (typeof val === 'boolean') return String(val);
     if (typeof val === 'object') {
-        if (val.message && typeof val.message === 'string') return val.message;
-        if (val.name && typeof val.name === 'string') return val.name;
+        if (Array.isArray(val)) return fallback;
+        try {
+            if (val.message && typeof val.message === 'string') return val.message;
+            if (val.name && typeof val.name === 'string') return val.name;
+            if (val.full_name && typeof val.full_name === 'string') return val.full_name;
+            if (val.display_name && typeof val.display_name === 'string') return val.display_name;
+        } catch(e) {}
         return fallback;
     }
     return fallback;
@@ -202,7 +207,7 @@ export const StoreApp: React.FC<StoreAppProps> = ({ user, onLogout }) => {
                 <div key={order.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white space-y-5 animate-slide-up hover:shadow-card-hover transition-all">
                    <div className="flex justify-between items-start">
                      <div>
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Order #{safeStr(order.id.slice(-4))}</p>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Order #{safeStr(order.id).slice(-4)}</p>
                        <h3 className="text-lg font-black text-slate-800">{safeStr(order.customerName)}</h3>
                      </div>
                      <span className={`px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest ${order.status === 'Placed' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>{safeStr(order.status)}</span>
@@ -238,7 +243,7 @@ export const StoreApp: React.FC<StoreAppProps> = ({ user, onLogout }) => {
                      <h4 className="font-black text-slate-800 text-base truncate">{safeStr(item.name)}</h4>
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">₹{item.storePrice} • {item.stock} left</p>
                    </div>
-                   <button onClick={() => handleInventoryUpdate(item, item.storePrice, !item.inStock, item.stock)} className={`w-14 h-8 rounded-full relative transition-all duration-300 ${item.inStock ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                   <button onClick={() => handleInventoryUpdate(item, item.storePrice, !item.inStock, item.stock)} className={`w-14 h-8 rounded-full relative transition-all duration-300 ${item.inStock ? 'bg-emerald-50' : 'bg-slate-200'}`}>
                       <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${item.inStock ? 'translate-x-7' : 'translate-x-1'}`}></div>
                    </button>
                  </div>
