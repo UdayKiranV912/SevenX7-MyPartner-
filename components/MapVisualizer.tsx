@@ -182,6 +182,19 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   return (
     <div className={`w-full bg-slate-50 overflow-hidden relative border border-white isolate ${className}`}>
       <div ref={mapContainerRef} className="w-full h-full z-0 bg-slate-100" />
+      
+      {/* Attribution Overlay */}
+      <div className="absolute bottom-1 left-3 z-[400] pointer-events-auto">
+        <a 
+          href="https://www.openstreetmap.org/copyright" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-[7px] font-bold text-slate-400/80 hover:text-slate-600 transition-colors uppercase tracking-[0.1em] drop-shadow-sm"
+        >
+          © OpenStreetMap
+        </a>
+      </div>
+
       {!isSelectionMode && (
           <button onClick={() => setIsFollowingUser(true)} className={`absolute bottom-4 right-4 z-[400] w-9 h-9 bg-white/95 rounded-xl shadow-md flex items-center justify-center border border-slate-100 ${isFollowingUser ? 'text-brand-DEFAULT' : 'text-slate-400'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M12 2c-4.418 0-8 3.582-8 8 0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282.76.76 0 00.71 0l.07-.04.028-.016a19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827 0-4.418-3.582-8-8-8zm0 11.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" /></svg>
