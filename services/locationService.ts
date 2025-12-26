@@ -21,8 +21,8 @@ export const getBrowserLocation = (): Promise<{ lat: number; lng: number; accura
 
     const options = {
       enableHighAccuracy: true, // Critical for street-level accuracy
-      timeout: 20000,           // Increased to 20s for better GPS lock chance
-      maximumAge: 0,            // Force fresh reading, no cache
+      timeout: 15000,           // 15s for precision lock
+      maximumAge: 0,            // Force fresh reading
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -34,7 +34,6 @@ export const getBrowserLocation = (): Promise<{ lat: number; lng: number; accura
         });
       },
       (err) => {
-        // Fallback or specific error handling
         let msg = "Location error.";
         switch(err.code) {
             case 1: msg = "Permission denied. Please enable location services."; break;
@@ -57,7 +56,6 @@ export const watchLocation = (
   
   return navigator.geolocation.watchPosition(
     (pos) => {
-      // Filter out low accuracy updates if needed, but for now accept all to get *something*
       onLocation({
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
@@ -70,7 +68,7 @@ export const watchLocation = (
     },
     { 
       enableHighAccuracy: true, 
-      timeout: 20000, 
+      timeout: 10000, 
       maximumAge: 0 
     }
   );
@@ -84,18 +82,13 @@ export const clearWatch = (watchId: number) => {
 
 export const getRoute = async (startLat: number, startLng: number, endLat: number, endLng: number): Promise<RouteResult | null> => {
   try {
-    // OSRM expects coordinates as {lon},{lat}
     const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
-    
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
-    
     const data = await response.json();
-    
     if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
       const route = data.routes[0];
       return {
-        // OSRM returns [lon, lat], map to [lat, lng] for Leaflet
         coordinates: route.geometry.coordinates.map((coord: number[]) => [coord[1], coord[0]]),
         distance: route.distance, 
         duration: route.duration 
@@ -103,8 +96,6 @@ export const getRoute = async (startLat: number, startLng: number, endLat: numbe
     }
     return null;
   } catch (error) {
-    // Use fallback straight line distance if OSRM fails
-    console.warn("OSRM Route Fetch Error:", error);
     return {
         coordinates: [[startLat, startLng], [endLat, endLng]],
         distance: 0,
@@ -120,39 +111,24 @@ export const reverseGeocode = async (lat: number, lng: number): Promise<string |
                 'User-Agent': 'Grocesphere-App/1.0'
             }
         });
-        
         if (!response.ok) throw new Error('Geocoding failed');
-        
         const data = await response.json();
         const addr = data.address;
-
         if (!addr) return data.display_name || null;
-
-        // Construct a cleaner, "Indian-style" short address
         const parts = [];
-
-        // 1. Specific Building/House
         if (addr.house_number) parts.push(addr.house_number);
         if (addr.building) parts.push(addr.building);
         else if (addr.flat) parts.push(addr.flat);
-        
-        // 2. Street/Road
         if (addr.road) parts.push(addr.road);
         else if (addr.pedestrian) parts.push(addr.pedestrian);
         else if (addr.street) parts.push(addr.street);
-        
-        // 3. Area/Suburb (Vital for context)
         if (addr.suburb) parts.push(addr.suburb);
         else if (addr.neighbourhood) parts.push(addr.neighbourhood);
         else if (addr.residential) parts.push(addr.residential);
         else if (addr.village) parts.push(addr.village);
-
-        // 4. City (Only if not in suburb to save space, or append at end)
         if (addr.city && !parts.includes(addr.city)) parts.push(addr.city);
         else if (addr.town) parts.push(addr.town);
-
         if (parts.length > 0) return parts.join(', ');
-        
         return data.display_name || null;
     } catch (error) {
         console.error("Nominatim Reverse Geocode Error:", error);

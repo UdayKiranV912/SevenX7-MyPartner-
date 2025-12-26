@@ -56,7 +56,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
 
   const finalUserLat = internalUserLoc?.lat ?? userLat;
   const finalUserLng = internalUserLoc?.lng ?? userLng;
-  const finalAccuracy = internalUserLoc?.acc ?? userAccuracy ?? 50;
+  const finalAccuracy = internalUserLoc?.acc ?? userAccuracy ?? 0;
+  const isHighPrecision = finalAccuracy > 0 && finalAccuracy < 30;
 
   useEffect(() => {
     const L = (window as any).L;
@@ -90,19 +91,16 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   useEffect(() => {
     if (!enableLiveTracking || isSelectionMode) return;
     const watchId = watchLocation((loc) => {
-        if (loc.accuracy > 60 && internalUserLoc) return;
         setInternalUserLoc({ lat: loc.lat, lng: loc.lng, acc: loc.accuracy });
     }, () => {});
     return () => clearWatch(watchId);
-  }, [enableLiveTracking, isSelectionMode, internalUserLoc]);
+  }, [enableLiveTracking, isSelectionMode]);
 
-  // Routing Effect
   useEffect(() => {
     if (!isMapReady || !showRoute || !routeSource || !routeTarget) {
       if (routeLayerRef.current) routeLayerRef.current.clearLayers();
       return;
     }
-
     const updateRoute = async () => {
       const L = (window as any).L;
       const route = await getRoute(routeSource.lat, routeSource.lng, routeTarget.lat, routeTarget.lng);
@@ -125,28 +123,52 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     if (!isMapReady || !L || !mapInstanceRef.current || !finalUserLat) return;
     const latLng = [finalUserLat, finalUserLng] as [number, number];
     
-    if (accuracyCircleRef.current) {
-        accuracyCircleRef.current.setLatLng(latLng).setRadius(finalAccuracy);
-    } else {
-        accuracyCircleRef.current = L.circle(latLng, { radius: finalAccuracy, color: 'transparent', fillColor: '#10b981', fillOpacity: 0.1 }).addTo(mapInstanceRef.current);
+    // Accuracy Ring
+    if (finalAccuracy > 5) {
+      if (accuracyCircleRef.current) {
+          accuracyCircleRef.current.setLatLng(latLng).setRadius(finalAccuracy);
+      } else {
+          accuracyCircleRef.current = L.circle(latLng, { 
+            radius: finalAccuracy, 
+            color: '#10b981', 
+            weight: 1, 
+            fillColor: '#10b981', 
+            fillOpacity: 0.1 
+          }).addTo(mapInstanceRef.current);
+      }
+    } else if (accuracyCircleRef.current) {
+      accuracyCircleRef.current.remove();
+      accuracyCircleRef.current = null;
     }
     
+    const label = isHighPrecision ? 'LIVE GPS • HIGH PRECISION' : 'YOU ARE HERE';
+    const labelColor = isHighPrecision ? 'bg-emerald-600' : 'bg-slate-900';
+
     if (userMarkerRef.current) { 
         userMarkerRef.current.setLatLng(latLng); 
+        // Update label dynamically
+        const iconElement = userMarkerRef.current.getElement();
+        if (iconElement) {
+          const labelDiv = iconElement.querySelector('.gps-label');
+          if (labelDiv) {
+            labelDiv.textContent = label;
+            labelDiv.className = `gps-label ${labelColor} text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-1 shadow-lg whitespace-nowrap uppercase tracking-tighter border border-white/20`;
+          }
+        }
     } else {
         const icon = L.divIcon({
           className: 'bg-transparent border-none',
           html: `
             <div class="flex flex-col items-center" style="transform: translateY(-20px)">
-              <div class="bg-slate-900 text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-1 shadow-lg whitespace-nowrap uppercase tracking-tighter border border-white/20">You are here</div>
+              <div class="gps-label ${labelColor} text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-1 shadow-lg whitespace-nowrap uppercase tracking-tighter border border-white/20">${label}</div>
               <div class="relative w-8 h-8 flex items-center justify-center">
                 <div class="absolute inset-0 bg-brand-DEFAULT/40 rounded-full animate-ping"></div>
                 <div class="relative bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 border-brand-DEFAULT text-sm">🛵</div>
               </div>
             </div>
           `,
-          iconSize: [80, 60], 
-          iconAnchor: [40, 48]
+          iconSize: [120, 60], 
+          iconAnchor: [60, 48]
         });
         userMarkerRef.current = L.marker(latLng, { icon, zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
     }
@@ -156,7 +178,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     }
   }, [finalUserLat, finalUserLng, finalAccuracy, isMapReady, isSelectionMode, isFollowingUser, driverLocation]);
 
-  // Target Point Marker (Store for Pickup, Home for Delivery)
+  // Target Point Marker
   useEffect(() => {
     const L = (window as any).L;
     if (!isMapReady || !L || !mapInstanceRef.current || !routeTarget || !showRoute) {
@@ -166,10 +188,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       }
       return;
     }
-
     const latLng = [routeTarget.lat, routeTarget.lng] as [number, number];
     const isPickup = mode === 'PICKUP';
-
     if (targetMarkerRef.current) {
       targetMarkerRef.current.setLatLng(latLng);
     } else {
@@ -190,19 +210,14 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     }
   }, [routeTarget, showRoute, isMapReady, mode]);
 
-  // Handle Driver Marker Update
+  // Handle Driver Marker
   useEffect(() => {
     const L = (window as any).L;
     if (!isMapReady || !L || !mapInstanceRef.current || !driverLocation) {
-        if (driverMarkerRef.current) {
-            driverMarkerRef.current.remove();
-            driverMarkerRef.current = null;
-        }
+        if (driverMarkerRef.current) { driverMarkerRef.current.remove(); driverMarkerRef.current = null; }
         return;
     }
-
     const latLng = [driverLocation.lat, driverLocation.lng] as [number, number];
-    
     if (driverMarkerRef.current) {
         driverMarkerRef.current.setLatLng(latLng);
     } else {
@@ -222,10 +237,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         });
         driverMarkerRef.current = L.marker(latLng, { icon, zIndexOffset: 1100 }).addTo(mapInstanceRef.current);
     }
-
-    if (isFollowingUser) {
-      mapInstanceRef.current.panTo(latLng, { animate: true });
-    }
+    if (isFollowingUser) mapInstanceRef.current.panTo(latLng, { animate: true });
   }, [driverLocation, isMapReady, isFollowingUser]);
 
   useEffect(() => {
@@ -250,14 +262,19 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     <div className={`w-full bg-slate-50 overflow-hidden relative border border-white isolate ${className}`}>
       <div ref={mapContainerRef} className="w-full h-full z-0 bg-slate-100" />
       
+      {/* Precision Indicator Overlay */}
+      {finalAccuracy > 0 && (
+        <div className="absolute top-4 right-14 z-[400] bg-white/90 backdrop-blur px-2 py-1 rounded-lg border border-slate-100 shadow-sm flex items-center gap-1.5 transition-all">
+          <div className={`w-1.5 h-1.5 rounded-full ${isHighPrecision ? 'bg-emerald-500 animate-pulse' : 'bg-orange-400'}`}></div>
+          <span className="text-[7px] font-black uppercase text-slate-500 tracking-wider">
+            GPS: ±{Math.round(finalAccuracy)}m
+          </span>
+        </div>
+      )}
+
       {/* Attribution Overlay */}
       <div className="absolute bottom-1 left-3 z-[400] pointer-events-auto">
-        <a 
-          href="https://www.openstreetmap.org/copyright" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-[7px] font-bold text-slate-400/80 hover:text-slate-600 transition-colors uppercase tracking-[0.1em] drop-shadow-sm"
-        >
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="text-[7px] font-bold text-slate-400/80 hover:text-slate-600 transition-colors uppercase tracking-[0.1em] drop-shadow-sm">
           © OpenStreetMap
         </a>
       </div>

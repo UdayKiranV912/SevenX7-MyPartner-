@@ -44,8 +44,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filterType, setFilterType] = useState<'ALL' | Store['type']>('ALL');
-  const [currentAddress, setCurrentAddress] = useState<string>(safeStr(user.address, 'Locating...'));
-  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(user.location);
+  const [currentAddress, setCurrentAddress] = useState<string>('Locating...');
+  const [locationStatus, setLocationStatus] = useState<'LOCATING' | 'FIX' | 'FALLBACK'>('LOCATING');
+  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number, acc: number} | null>(user.location ? { ...user.location, acc: 0 } : null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showPayment, setShowPayment] = useState(false);
   const [pendingOrderDetails, setPendingOrderDetails] = useState<any>(null);
@@ -54,17 +55,28 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
     const initLocation = async () => {
       try {
         const loc = await getBrowserLocation();
-        setCurrentLocation({ lat: loc.lat, lng: loc.lng });
+        setCurrentLocation({ lat: loc.lat, lng: loc.lng, acc: loc.accuracy });
+        setLocationStatus(loc.accuracy < 50 ? 'FIX' : 'FALLBACK');
         const address = await reverseGeocode(loc.lat, loc.lng);
         if (address) setCurrentAddress(safeStr(address));
       } catch (e) {
-        if (!user.location) { setCurrentLocation({ lat: 12.9716, lng: 77.5946 }); setCurrentAddress("Bengaluru, India"); }
+        if (!user.location) { 
+          setCurrentLocation({ lat: 12.9716, lng: 77.5946, acc: 100 }); 
+          setCurrentAddress("Bengaluru, India"); 
+          setLocationStatus('FALLBACK');
+        }
       }
     };
     initLocation();
     const watchId = watchLocation((loc) => {
-        // High Accuracy Guard: Filter updates with > 60m error
-        if (loc.accuracy < 60) setCurrentLocation({ lat: loc.lat, lng: loc.lng });
+        setCurrentLocation({ lat: loc.lat, lng: loc.lng, acc: loc.accuracy });
+        if (loc.accuracy < 30) setLocationStatus('FIX');
+        // Only update address if we have a better fix or no address yet
+        if (currentAddress === 'Locating...') {
+          reverseGeocode(loc.lat, loc.lng).then(addr => {
+            if (addr) setCurrentAddress(safeStr(addr));
+          });
+        }
     }, (err) => {});
     return () => { if (watchId !== -1) clearWatch(watchId); };
   }, []);
@@ -82,7 +94,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
       } catch (e) { setStores(MOCK_STORES); } finally { setIsLoading(false); }
     };
     loadStores();
-  }, [currentLocation]);
+  }, [currentLocation?.lat, currentLocation?.lng]);
 
   useEffect(() => {
     if (!selectedStore) return;
@@ -125,7 +137,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
     if (!pendingOrderDetails) return;
     const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const newOrder: Order = {
-      id: `ord-${Date.now()}`, date: new Date().toISOString(), items: cart, total: totalAmount, status: 'Pending', paymentStatus: 'PAID', mode: 'DELIVERY', deliveryType: pendingOrderDetails.deliveryType, scheduledTime: pendingOrderDetails.scheduledTime, deliveryAddress: currentAddress, storeName: safeStr(cart[0].storeName), storeLocation: selectedStore ? { lat: selectedStore.lat, lng: selectedStore.lng } : undefined, userLocation: currentLocation || undefined, splits: pendingOrderDetails.splits, customerName: user.name, customerPhone: user.phone
+      id: `ord-${Date.now()}`, date: new Date().toISOString(), items: cart, total: totalAmount, status: 'Pending', paymentStatus: 'PAID', mode: 'DELIVERY', deliveryType: pendingOrderDetails.deliveryType, scheduledTime: pendingOrderDetails.scheduledTime, deliveryAddress: currentAddress, storeName: safeStr(cart[0].storeName), storeLocation: selectedStore ? { lat: selectedStore.lat, lng: selectedStore.lng } : undefined, userLocation: currentLocation ? { lat: currentLocation.lat, lng: currentLocation.lng } : undefined, splits: pendingOrderDetails.splits, customerName: user.name, customerPhone: user.phone
     };
     if (user.id && !user.id.includes('demo')) await saveOrder(user.id, newOrder);
     setCart([]); setShowPayment(false); setActiveView('ORDERS');
@@ -136,9 +148,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-5 py-2 flex items-center justify-between z-[60] shrink-0 h-12">
         <SevenX7Logo size="xs" hideBrandName={true} />
         <div className="flex items-center gap-2">
-          <div className="bg-slate-50 border border-slate-100 rounded-full px-3 py-0.5 flex items-center gap-2 max-w-[120px] cursor-pointer" onClick={() => setActiveView('PROFILE')}>
-            <span className="text-emerald-500 text-[6px] animate-pulse">●</span>
-            <span className="text-[7px] font-black text-slate-700 truncate uppercase tracking-tighter">{safeStr(currentAddress)}</span>
+          <div className="bg-slate-50 border border-slate-100 rounded-full px-3 py-0.5 flex items-center gap-2 max-w-[140px] cursor-pointer" onClick={() => setActiveView('PROFILE')}>
+            <span className={`${locationStatus === 'FIX' ? 'text-emerald-500' : 'text-orange-400'} text-[6px] animate-pulse`}>●</span>
+            <span className="text-[7px] font-black text-slate-700 truncate uppercase tracking-tighter">
+              {locationStatus === 'LOCATING' ? 'Locking GPS...' : safeStr(currentAddress)}
+            </span>
           </div>
           <button onClick={() => setActiveView('CART')} className="relative w-7 h-7 bg-slate-900 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-md">
             <span className="text-[10px]">🛒</span>
@@ -151,7 +165,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({ user, onLogout }) => {
         {activeView === 'HOME' && (
           <div className="animate-fade-in p-4 space-y-4">
             <div className="h-80 rounded-[2.5rem] overflow-hidden shadow-md relative border-2 border-white">
-              <MapVisualizer stores={processedStores} userLat={currentLocation?.lat || null} userLng={currentLocation?.lng || null} selectedStore={null} onSelectStore={(s) => { setSelectedStore(s); setActiveView('STORE'); }} mode="DELIVERY" enableLiveTracking={false} />
+              <MapVisualizer stores={processedStores} userLat={currentLocation?.lat || null} userLng={currentLocation?.lng || null} userAccuracy={currentLocation?.acc} selectedStore={null} onSelectStore={(s) => { setSelectedStore(s); setActiveView('STORE'); }} mode="DELIVERY" enableLiveTracking={true} />
             </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-1 hide-scrollbar">
               {['ALL', 'general', 'produce', 'dairy'].map((type) => (
