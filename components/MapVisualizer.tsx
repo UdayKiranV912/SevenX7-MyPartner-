@@ -35,11 +35,13 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   mode,
   isSelectionMode = false,
   enableLiveTracking = true,
+  driverLocation,
   forcedCenter,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
+  const driverMarkerRef = useRef<any>(null);
   const accuracyCircleRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null); 
 
@@ -82,13 +84,13 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   useEffect(() => {
     if (!enableLiveTracking || isSelectionMode) return;
     const watchId = watchLocation((loc) => {
-        // ACCURACY GUARD: Filter out jittery/high-error coordinates (> 60 meters)
         if (loc.accuracy > 60 && internalUserLoc) return;
         setInternalUserLoc({ lat: loc.lat, lng: loc.lng, acc: loc.accuracy });
     }, () => {});
     return () => clearWatch(watchId);
   }, [enableLiveTracking, isSelectionMode, internalUserLoc]);
 
+  // Handle User Marker Update
   useEffect(() => {
     const L = (window as any).L;
     if (!isMapReady || !L || !mapInstanceRef.current || !finalUserLat) return;
@@ -105,8 +107,17 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     } else {
         const icon = L.divIcon({
           className: 'bg-transparent border-none',
-          html: '<div class="relative w-full h-full flex items-center justify-center"><div class="absolute inset-0 bg-brand-DEFAULT/30 rounded-full animate-ping"></div><div class="absolute inset-0 m-auto w-4 h-4 bg-brand-DEFAULT rounded-full border-[2px] border-white shadow-md z-10"></div></div>',
-          iconSize: [24, 24], iconAnchor: [12, 12]
+          html: `
+            <div class="flex flex-col items-center" style="transform: translateY(-20px)">
+              <div class="bg-slate-900 text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-1 shadow-lg whitespace-nowrap uppercase tracking-tighter border border-white/20">You are here</div>
+              <div class="relative w-8 h-8 flex items-center justify-center">
+                <div class="absolute inset-0 bg-brand-DEFAULT/40 rounded-full animate-ping"></div>
+                <div class="relative bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 border-brand-DEFAULT text-sm">🛵</div>
+              </div>
+            </div>
+          `,
+          iconSize: [80, 60], 
+          iconAnchor: [40, 48]
         });
         userMarkerRef.current = L.marker(latLng, { icon, zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
     }
@@ -115,6 +126,40 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         mapInstanceRef.current.panTo(latLng, { animate: true, duration: 1.0 });
     }
   }, [finalUserLat, finalUserLng, finalAccuracy, isMapReady, isSelectionMode, isFollowingUser]);
+
+  // Handle Driver Marker Update (for live order tracking)
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!isMapReady || !L || !mapInstanceRef.current || !driverLocation) {
+        if (driverMarkerRef.current) {
+            driverMarkerRef.current.remove();
+            driverMarkerRef.current = null;
+        }
+        return;
+    }
+
+    const latLng = [driverLocation.lat, driverLocation.lng] as [number, number];
+    
+    if (driverMarkerRef.current) {
+        driverMarkerRef.current.setLatLng(latLng);
+    } else {
+        const icon = L.divIcon({
+          className: 'bg-transparent border-none',
+          html: `
+            <div class="flex flex-col items-center" style="transform: translateY(-20px)">
+              <div class="bg-blue-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-1 shadow-lg whitespace-nowrap uppercase tracking-tighter border border-white/20">Partner</div>
+              <div class="relative w-8 h-8 flex items-center justify-center">
+                <div class="absolute inset-0 bg-blue-500/30 rounded-full animate-pulse"></div>
+                <div class="relative bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 border-blue-500 text-sm">🚚</div>
+              </div>
+            </div>
+          `,
+          iconSize: [80, 60], 
+          iconAnchor: [40, 48]
+        });
+        driverMarkerRef.current = L.marker(latLng, { icon, zIndexOffset: 1100 }).addTo(mapInstanceRef.current);
+    }
+  }, [driverLocation, isMapReady]);
 
   useEffect(() => {
     const L = (window as any).L;
