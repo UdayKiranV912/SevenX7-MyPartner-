@@ -10,9 +10,6 @@ interface MyOrdersProps {
   userId?: string;
 }
 
-/**
- * Enhanced robust helper to strictly prevent [object Object] rendering.
- */
 const safeStr = (val: any, fallback: string = ''): string => {
     if (val === null || val === undefined) return fallback;
     if (typeof val === 'string') return val;
@@ -23,8 +20,6 @@ const safeStr = (val: any, fallback: string = ''): string => {
         try {
             if (val.message && typeof val.message === 'string') return val.message;
             if (val.name && typeof val.name === 'string') return val.name;
-            if (val.full_name && typeof val.full_name === 'string') return val.full_name;
-            if (val.display_name && typeof val.display_name === 'string') return val.display_name;
         } catch(e) {}
         return fallback;
     }
@@ -35,13 +30,7 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
   const [orders, setOrders] = useState<Order[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [tick, setTick] = useState(0);
   const [liveDriverLocations, setLiveDriverLocations] = useState<Record<string, {lat: number, lng: number}>>({});
-
-  useEffect(() => {
-      const interval = setInterval(() => setTick(t => t + 1), 1000);
-      return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -96,39 +85,6 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
     return () => subs.forEach(s => s.unsubscribe());
   }, [orders, userId]);
 
-  useEffect(() => {
-    if (userId !== 'demo-customer') return;
-    const interval = setInterval(() => {
-      setOrders(prevOrders => {
-        const updatedOrders = prevOrders.map((o): Order => {
-            if (o.status === 'Cancelled' || o.status === 'Delivered' || o.status === 'Picked Up') return o;
-            if (o.status === 'Pending') return { ...o, status: 'Preparing' };
-            if (o.status === 'Preparing') return { ...o, status: o.mode === 'DELIVERY' ? 'On the way' : 'Ready' };
-            if (o.status === 'On the way') return { ...o, status: 'Delivered' };
-            if (o.status === 'Ready') return { ...o, status: 'Picked Up' };
-            return o;
-        });
-        localStorage.setItem('grocesphere_orders', JSON.stringify(updatedOrders));
-        return updatedOrders;
-      });
-    }, 15000); 
-    return () => clearInterval(interval);
-  }, [userId]);
-
-  const getDriverPos = (order: Order) => {
-      const partnerId = (order as any).delivery_partner_id;
-      if (partnerId && liveDriverLocations[partnerId]) return liveDriverLocations[partnerId];
-      if (!order.storeLocation || !order.userLocation) return undefined;
-      const loopDuration = 60; 
-      const offset = order.id.length; 
-      const t = (tick + offset) % loopDuration;
-      const progress = t / loopDuration;
-      return { 
-          lat: order.storeLocation.lat + (order.userLocation.lat - order.storeLocation.lat) * progress, 
-          lng: order.storeLocation.lng + (order.userLocation.lng - order.storeLocation.lng) * progress 
-      };
-  };
-
   const getStatusInfo = (status: string, mode: OrderMode) => {
       const steps = mode === 'DELIVERY' ? ['Pending', 'Preparing', 'On the way', 'Delivered'] : ['Pending', 'Preparing', 'Ready', 'Picked Up'];
       const currentIndex = steps.indexOf(status);
@@ -145,15 +101,36 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
         const isExpanded = expandedOrderId === order.id;
         const isCompleted = order.status === 'Delivered' || order.status === 'Picked Up';
         const isCancelled = order.status === 'Cancelled';
-        const isPickup = order.mode === 'PICKUP';
+        const isOnTheWay = order.status === 'On the way';
+        const isReadyForPickup = order.status === 'Ready' && order.mode === 'PICKUP';
+        
         const { steps, currentIndex, progress, getLabel, getIcon } = getStatusInfo(order.status, order.mode);
         const mapStore: Store = { id: `s-${order.id}`, name: safeStr(order.storeName), lat: order.storeLocation?.lat || 0, lng: order.storeLocation?.lng || 0, address: '', rating: 0, distance: '', isOpen: true, type: 'general', availableProductIds: [] };
-        const driverPos = getDriverPos(order);
-        const routeTargetPoint = { lat: order.userLocation?.lat || 0, lng: order.userLocation?.lng || 0 };
+        
+        const partnerId = (order as any).delivery_partner_id;
+        const driverPos = partnerId ? liveDriverLocations[partnerId] : undefined;
+        const userPos = { lat: order.userLocation?.lat || userLocation?.lat || 0, lng: order.userLocation?.lng || userLocation?.lng || 0 };
+
+        // Logic for navigation:
+        // 1. If Delivery & On the way: Show Driver to User Home
+        // 2. If Pickup & Ready: Show User current to Store
+        const showNav = isOnTheWay || isReadyForPickup;
+        const navSource = isOnTheWay ? driverPos : (userLocation || userPos);
+        const navTarget = isOnTheWay ? userPos : { lat: order.storeLocation?.lat || 0, lng: order.storeLocation?.lng || 0 };
 
         return (
-          <div key={order.id} className={`bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 transition-all cursor-pointer ${isExpanded ? 'ring-2 ring-slate-100 bg-slate-50/20' : ''}`} style={{ animationDelay: `${idx * 100}ms` }} onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}>
-            <div className="flex justify-between items-start mb-6"><div className="flex-1 min-w-0 pr-4"><h3 className="font-black text-slate-900 text-lg truncate">{safeStr(order.storeName)}</h3><div className="flex items-center gap-2 mt-1.5"><span className="text-[10px] font-bold text-slate-400 uppercase">{new Date(order.date).toLocaleDateString()}</span><span className="text-[10px] font-black text-slate-800 tracking-wide">₹{order.total}</span></div></div><div className={`px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{safeStr(order.status)}</div></div>
+          <div key={order.id} className={`bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 transition-all cursor-pointer ${isExpanded ? 'ring-2 ring-slate-100' : ''}`} style={{ animationDelay: `${idx * 100}ms` }} onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}>
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex-1 min-w-0 pr-4">
+                <h3 className="font-black text-slate-900 text-lg truncate">{safeStr(order.storeName)}</h3>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">{new Date(order.date).toLocaleDateString()}</span>
+                  <span className="text-[10px] font-black text-slate-800 tracking-wide">₹{order.total}</span>
+                </div>
+              </div>
+              <div className={`px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{safeStr(order.status)}</div>
+            </div>
+            
             {!isCancelled && (
                  <div className="mb-8 px-4 relative">
                     <div className="absolute top-[14px] left-10 right-10 h-0.5 bg-slate-100 rounded-full -z-0"></div>
@@ -166,23 +143,23 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                     ))}</div>
                  </div>
             )}
+
             {isExpanded && (
-                <div className="mt-6 pt-6 border-t border-slate-100 animate-fade-in">
+                <div className="mt-6 pt-6 border-t border-slate-100 animate-fade-in space-y-4">
                     {!isCancelled && !isCompleted && (
-                        <div className="h-48 rounded-[2rem] overflow-hidden mb-6 border border-slate-100 shadow-inner relative isolate" onClick={(e) => e.stopPropagation()}>
+                        <div className="h-56 rounded-[2rem] overflow-hidden border border-slate-100 shadow-inner relative isolate" onClick={(e) => e.stopPropagation()}>
                             <MapVisualizer
                                 stores={[mapStore]}
                                 selectedStore={null}
-                                userLat={userLocation?.lat || 0}
-                                userLng={userLocation?.lng || 0}
+                                userLat={userLocation?.lat || userPos.lat}
+                                userLng={userLocation?.lng || userPos.lng}
                                 mode={order.mode}
                                 onSelectStore={() => {}}
-                                showRoute={order.status === 'On the way'}
-                                enableExternalNavigation={false}
+                                showRoute={showNav}
                                 className="h-full"
                                 driverLocation={driverPos}
-                                routeSource={driverPos}
-                                routeTarget={routeTargetPoint}
+                                routeSource={navSource}
+                                routeTarget={navTarget}
                             />
                         </div>
                     )}

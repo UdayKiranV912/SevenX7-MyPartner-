@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Store, OrderMode } from '../types';
-import { watchLocation, clearWatch } from '../services/locationService';
+import { watchLocation, clearWatch, getRoute } from '../services/locationService';
 
 interface MapVisualizerProps {
   stores: Store[];
@@ -37,13 +37,18 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   enableLiveTracking = true,
   driverLocation,
   forcedCenter,
+  routeSource,
+  routeTarget,
+  showRoute
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
+  const targetMarkerRef = useRef<any>(null);
   const accuracyCircleRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null); 
+  const routeLayerRef = useRef<any>(null);
 
   const [isMapReady, setIsMapReady] = useState(false);
   const [isFollowingUser, setIsFollowingUser] = useState(!isSelectionMode);
@@ -72,6 +77,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     }).addTo(map);
 
     markersLayerRef.current = L.layerGroup().addTo(map);
+    routeLayerRef.current = L.layerGroup().addTo(map);
     map.on('dragstart', () => setIsFollowingUser(false));
 
     mapInstanceRef.current = map;
@@ -89,6 +95,29 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     }, () => {});
     return () => clearWatch(watchId);
   }, [enableLiveTracking, isSelectionMode, internalUserLoc]);
+
+  // Routing Effect
+  useEffect(() => {
+    if (!isMapReady || !showRoute || !routeSource || !routeTarget) {
+      if (routeLayerRef.current) routeLayerRef.current.clearLayers();
+      return;
+    }
+
+    const updateRoute = async () => {
+      const L = (window as any).L;
+      const route = await getRoute(routeSource.lat, routeSource.lng, routeTarget.lat, routeTarget.lng);
+      if (route && L && routeLayerRef.current) {
+        routeLayerRef.current.clearLayers();
+        L.polyline(route.coordinates, {
+          color: '#10b981',
+          weight: 6,
+          opacity: 0.6,
+          lineJoin: 'round'
+        }).addTo(routeLayerRef.current);
+      }
+    };
+    updateRoute();
+  }, [routeSource, routeTarget, showRoute, isMapReady]);
 
   // Handle User Marker Update
   useEffect(() => {
@@ -122,12 +151,46 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         userMarkerRef.current = L.marker(latLng, { icon, zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
     }
 
-    if (!isSelectionMode && isFollowingUser) {
+    if (!isSelectionMode && isFollowingUser && !driverLocation) {
         mapInstanceRef.current.panTo(latLng, { animate: true, duration: 1.0 });
     }
-  }, [finalUserLat, finalUserLng, finalAccuracy, isMapReady, isSelectionMode, isFollowingUser]);
+  }, [finalUserLat, finalUserLng, finalAccuracy, isMapReady, isSelectionMode, isFollowingUser, driverLocation]);
 
-  // Handle Driver Marker Update (for live order tracking)
+  // Target Point Marker (Store for Pickup, Home for Delivery)
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!isMapReady || !L || !mapInstanceRef.current || !routeTarget || !showRoute) {
+      if (targetMarkerRef.current) {
+        targetMarkerRef.current.remove();
+        targetMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const latLng = [routeTarget.lat, routeTarget.lng] as [number, number];
+    const isPickup = mode === 'PICKUP';
+
+    if (targetMarkerRef.current) {
+      targetMarkerRef.current.setLatLng(latLng);
+    } else {
+      const icon = L.divIcon({
+        className: 'bg-transparent border-none',
+        html: `
+          <div class="flex flex-col items-center" style="transform: translateY(-20px)">
+            <div class="bg-slate-900 text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-1 shadow-lg whitespace-nowrap uppercase tracking-tighter border border-white/20">${isPickup ? 'Store Location' : 'Your Home'}</div>
+            <div class="relative w-8 h-8 flex items-center justify-center">
+              <div class="relative bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-xl border-2 border-slate-900 text-sm">${isPickup ? '🏪' : '🏠'}</div>
+            </div>
+          </div>
+        `,
+        iconSize: [80, 60],
+        iconAnchor: [40, 48]
+      });
+      targetMarkerRef.current = L.marker(latLng, { icon, zIndexOffset: 900 }).addTo(mapInstanceRef.current);
+    }
+  }, [routeTarget, showRoute, isMapReady, mode]);
+
+  // Handle Driver Marker Update
   useEffect(() => {
     const L = (window as any).L;
     if (!isMapReady || !L || !mapInstanceRef.current || !driverLocation) {
@@ -159,13 +222,17 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         });
         driverMarkerRef.current = L.marker(latLng, { icon, zIndexOffset: 1100 }).addTo(mapInstanceRef.current);
     }
-  }, [driverLocation, isMapReady]);
+
+    if (isFollowingUser) {
+      mapInstanceRef.current.panTo(latLng, { animate: true });
+    }
+  }, [driverLocation, isMapReady, isFollowingUser]);
 
   useEffect(() => {
     const L = (window as any).L;
     if (!isMapReady || !L) return;
     markersLayerRef.current.clearLayers();
-    if (isSelectionMode) return;
+    if (isSelectionMode || showRoute) return;
     stores.forEach(store => {
        if (!store.lat) return;
        const isSelected = selectedStore?.id === store.id;
@@ -177,7 +244,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
        const icon = L.divIcon({ className: 'bg-transparent', html: iconHtml, iconSize: [size, size], iconAnchor: [size/2, size] });
        L.marker([store.lat, store.lng], { icon }).on('click', () => onSelectStore(store)).addTo(markersLayerRef.current);
     });
-  }, [stores, selectedStore, isMapReady, isSelectionMode]);
+  }, [stores, selectedStore, isMapReady, isSelectionMode, showRoute]);
 
   return (
     <div className={`w-full bg-slate-50 overflow-hidden relative border border-white isolate ${className}`}>
@@ -199,6 +266,13 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
           <button onClick={() => setIsFollowingUser(true)} className={`absolute bottom-4 right-4 z-[400] w-9 h-9 bg-white/95 rounded-xl shadow-md flex items-center justify-center border border-slate-100 ${isFollowingUser ? 'text-brand-DEFAULT' : 'text-slate-400'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M12 2c-4.418 0-8 3.582-8 8 0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282.76.76 0 00.71 0l.07-.04.028-.016a19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827 0-4.418-3.582-8-8-8zm0 11.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" /></svg>
           </button>
+      )}
+
+      {showRoute && (
+        <div className="absolute top-4 left-4 z-[400] bg-white/90 backdrop-blur px-3 py-1.5 rounded-full border border-slate-100 shadow-sm flex items-center gap-2">
+           <span className="w-2 h-2 rounded-full bg-brand-DEFAULT animate-ping"></span>
+           <span className="text-[9px] font-black uppercase text-slate-900 tracking-wider">Live Radar Link Active</span>
+        </div>
       )}
     </div>
   );
